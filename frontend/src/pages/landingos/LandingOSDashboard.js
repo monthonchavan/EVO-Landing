@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Play, Pause, RotateCcw, Settings, Cpu, Activity, Gauge, 
-  Mountain, Zap, Brain, AlertTriangle, CheckCircle,
-  BarChart3, Clock, Layers, Box, Upload, Download, FileText, X, GitCompare
+  Mountain, Zap, Box, Upload, Download, FileText, X, GitCompare,
+  Layers, BarChart3, Clock, Eye, EyeOff, Maximize2, Grid3X3
 } from 'lucide-react';
 import { LineChart, Line as RechartsLine, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import axios from 'axios';
+import Scene3D from '../../components/Scene3D';
+import BatchExperimentsPanel from '../../components/BatchExperiments';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL;
+const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 // 2D Event visualization canvas
-function EventCanvas({ events }) {
+function EventCanvas({ events, corners }) {
   const canvasRef = useRef(null);
   
   useEffect(() => {
@@ -21,13 +23,16 @@ function EventCanvas({ events }) {
     const width = canvas.width;
     const height = canvas.height;
     
-    // Clear canvas
-    ctx.fillStyle = '#0F172A';
+    // Clear canvas with gradient background
+    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, '#0F172A');
+    gradient.addColorStop(1, '#1E293B');
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
     
     // Draw grid
-    ctx.strokeStyle = '#1E293B';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#1E3A5F';
+    ctx.lineWidth = 0.5;
     for (let x = 0; x < width; x += 32) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
@@ -41,16 +46,38 @@ function EventCanvas({ events }) {
       ctx.stroke();
     }
     
-    // Draw events
+    // Draw events with glow effect
     if (events && events.length > 0) {
       events.slice(0, 500).forEach(event => {
         const x = (event.x / 640) * width;
         const y = (event.y / 480) * height;
         
+        // Glow effect
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = event.polarity > 0 ? '#0088FF' : '#FF6600';
+        
         ctx.fillStyle = event.polarity > 0 ? '#0055FF' : '#FF5F00';
         ctx.beginPath();
         ctx.arc(x, y, 3, 0, Math.PI * 2);
         ctx.fill();
+      });
+      ctx.shadowBlur = 0;
+    }
+    
+    // Draw detected corners (SNN)
+    if (corners && corners.length > 0) {
+      ctx.strokeStyle = '#FFFF00';
+      ctx.lineWidth = 2;
+      corners.forEach(corner => {
+        const x = (corner.x / 640) * width;
+        const y = (corner.y / 480) * height;
+        
+        ctx.beginPath();
+        ctx.moveTo(x - 8, y);
+        ctx.lineTo(x + 8, y);
+        ctx.moveTo(x, y - 8);
+        ctx.lineTo(x, y + 8);
+        ctx.stroke();
       });
     }
     
@@ -66,7 +93,7 @@ function EventCanvas({ events }) {
     ctx.stroke();
     ctx.setLineDash([]);
     
-  }, [events]);
+  }, [events, corners]);
   
   return (
     <canvas 
@@ -170,7 +197,7 @@ function ImportModal({ isOpen, onClose, onImport }) {
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" data-testid="import-modal">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4">
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <h3 className="font-heading text-lg font-semibold text-slate-800">Import Hardware Data</h3>
@@ -201,7 +228,6 @@ function ImportModal({ isOpen, onClose, onImport }) {
               onClick={() => fileInputRef.current?.click()}
               className="btn-primary"
               disabled={uploading}
-              data-testid="btn-browse-files"
             >
               {uploading ? 'Uploading...' : 'Browse Files'}
             </button>
@@ -235,13 +261,12 @@ function ExportMenu({ simulationId, onClose }) {
       url = `${API_URL}/api/landingos/export/simulation/${simulationId}/trajectory?format=${format}`;
     }
     
-    // Trigger download
     window.open(url, '_blank');
     onClose();
   };
   
   return (
-    <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-slate-200 py-2 w-48 z-20" data-testid="export-menu">
+    <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-slate-200 py-2 w-48 z-20">
       <div className="px-3 py-1 text-xs font-medium text-slate-400 uppercase">Events</div>
       <button
         onClick={() => handleExport('events', 'csv')}
@@ -279,21 +304,24 @@ export default function LandingOSDashboard() {
   const [isRunning, setIsRunning] = useState(false);
   const [simData, setSimData] = useState(null);
   const [events, setEvents] = useState([]);
+  const [corners, setCorners] = useState([]);
   const [groundTruth, setGroundTruth] = useState([]);
   const [estimated, setEstimated] = useState([]);
   const [metricsHistory, setMetricsHistory] = useState([]);
-  const [aiEnabled, setAiEnabled] = useState(true);
-  const [aiAnalysis, setAiAnalysis] = useState(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiAvailable, setAiAvailable] = useState(true);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [importedDataset, setImportedDataset] = useState(null);
+  // View state
+  const [activeView, setActiveView] = useState('dashboard'); // dashboard, 3d, batch
+  const [show3D, setShow3D] = useState(false);
+  const [terrain3DData, setTerrain3DData] = useState(null);
   // Comparison state
   const [comparisonEnabled, setComparisonEnabled] = useState(false);
-  const [fvoData, setFvoData] = useState(null);
   const [comparisonResults, setComparisonResults] = useState(null);
+  // SNN state
+  const [snnEnabled, setSnnEnabled] = useState(true);
   const intervalRef = useRef(null);
+  const wsRef = useRef(null);
   
   // Configuration state
   const [config, setConfig] = useState({
@@ -302,38 +330,37 @@ export default function LandingOSDashboard() {
     descent_velocity: 50,
     vibration_amplitude: 0.5,
     noise_level: 0.1,
-    feature_density: 200
+    feature_density: 200,
+    use_snn_processing: true
   });
-  
-  // Check AI availability
-  useEffect(() => {
-    axios.get(`${API_URL}/api/landingos/ai/status`)
-      .then(res => setAiAvailable(res.data.enabled))
-      .catch(() => setAiAvailable(false));
-  }, []);
   
   // Create simulation
   const createSimulation = useCallback(async () => {
     try {
-      const res = await axios.post(`${API_URL}/api/landingos/simulation/create`, config);
+      const res = await axios.post(`${API_URL}/api/landingos/simulation/create`, {
+        ...config,
+        use_snn_processing: snnEnabled
+      });
       setSimulationId(res.data.id);
       setSimData(res.data);
       setEvents([]);
+      setCorners([]);
       setGroundTruth([]);
       setEstimated([]);
       setMetricsHistory([]);
-      setAiAnalysis(null);
-      setFvoData(null);
       setComparisonResults(null);
       
-      // Enable comparison if toggle is on
+      // Fetch 3D data
+      const data3D = await axios.get(`${API_URL}/api/landingos/simulation/${res.data.id}/3d`);
+      setTerrain3DData(data3D.data.terrain);
+      
       if (comparisonEnabled) {
         await axios.post(`${API_URL}/api/landingos/simulation/${res.data.id}/enable-comparison`);
       }
     } catch (err) {
       console.error('Failed to create simulation:', err);
     }
-  }, [config, comparisonEnabled]);
+  }, [config, comparisonEnabled, snnEnabled]);
   
   // Toggle comparison mode
   const toggleComparison = async () => {
@@ -349,7 +376,6 @@ export default function LandingOSDashboard() {
       } else {
         await axios.delete(`${API_URL}/api/landingos/simulation/${simulationId}/disable-comparison`);
         setComparisonEnabled(false);
-        setFvoData(null);
         setComparisonResults(null);
       }
     } catch (err) {
@@ -369,7 +395,7 @@ export default function LandingOSDashboard() {
     }
   };
   
-  // Step simulation (with optional comparison)
+  // Step simulation
   const stepSimulation = useCallback(async () => {
     if (!simulationId) return;
     
@@ -383,7 +409,6 @@ export default function LandingOSDashboard() {
       });
       
       const result = comparisonEnabled ? res.data.final_result?.evo : res.data.final_result;
-      const fvoResult = comparisonEnabled ? res.data.final_result?.fvo : null;
       
       if (result) {
         setSimData(result);
@@ -409,22 +434,10 @@ export default function LandingOSDashboard() {
         
         if (result.status === 'landed') {
           setIsRunning(false);
-          // Fetch final comparison
           if (comparisonEnabled) {
             fetchComparison();
           }
         }
-      }
-      
-      // Store FVO data
-      if (fvoResult) {
-        setFvoData(prev => {
-          const newData = prev || { metrics: [] };
-          if (fvoResult.metrics) {
-            newData.metrics = [...(newData.metrics || []).slice(-50), fvoResult.metrics];
-          }
-          return newData;
-        });
       }
     } catch (err) {
       console.error('Simulation step error:', err);
@@ -458,37 +471,19 @@ export default function LandingOSDashboard() {
       await axios.post(`${API_URL}/api/landingos/simulation/${simulationId}/reset`);
       setSimData(null);
       setEvents([]);
+      setCorners([]);
       setGroundTruth([]);
       setEstimated([]);
       setMetricsHistory([]);
-      setAiAnalysis(null);
+      setComparisonResults(null);
     } catch (err) {
       console.error('Reset error:', err);
     }
   };
   
-  // Request AI analysis
-  const requestAiAnalysis = async () => {
-    if (!simulationId || !aiEnabled || !aiAvailable) return;
-    
-    setAiLoading(true);
-    try {
-      const res = await axios.post(`${API_URL}/api/landingos/ai/analyze`, {
-        simulation_id: simulationId,
-        analysis_type: 'simulation'
-      });
-      setAiAnalysis(res.data);
-    } catch (err) {
-      console.error('AI analysis error:', err);
-      setAiAnalysis({ error: 'Failed to get AI analysis' });
-    }
-    setAiLoading(false);
-  };
-  
   // Auto-create simulation on mount
   useEffect(() => {
     createSimulation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   const metrics = simData?.metrics || {};
@@ -499,69 +494,57 @@ export default function LandingOSDashboard() {
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
       {/* Sidebar */}
-      <aside className="sidebar" data-testid="sidebar">
+      <aside className="sidebar">
         <div className="sidebar-logo">
           <h1 className="font-heading text-xl font-bold text-slate-900">LandingOS</h1>
           <p className="text-xs text-slate-500 mt-1">Event-Driven Navigation</p>
+          <span className="text-xs text-blue-600 font-medium mt-1 block">Local Mode</span>
         </div>
         <nav className="sidebar-nav">
-          <div className="nav-item active" data-testid="nav-dashboard">
+          <div 
+            className={`nav-item ${activeView === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveView('dashboard')}
+          >
             <Layers size={18} />
             <span>Dashboard</span>
           </div>
-          <div className="nav-item" data-testid="nav-simulation">
-            <Mountain size={18} />
-            <span>Simulation</span>
-          </div>
-          <div className="nav-item" data-testid="nav-events">
-            <Zap size={18} />
-            <span>Event Stream</span>
-          </div>
-          <div className="nav-item" data-testid="nav-trajectory">
-            <Activity size={18} />
-            <span>Trajectory</span>
-          </div>
-          <div className="nav-item" data-testid="nav-experiments">
-            <BarChart3 size={18} />
-            <span>Experiments</span>
-          </div>
-          <div className="nav-item" data-testid="nav-ai">
-            <Brain size={18} />
-            <span>AI Analysis</span>
-          </div>
-          
-          <div className="border-t border-slate-200 my-3" />
-          
           <div 
-            className="nav-item" 
-            data-testid="nav-import"
-            onClick={() => setShowImportModal(true)}
+            className={`nav-item ${activeView === '3d' ? 'active' : ''}`}
+            onClick={() => setActiveView('3d')}
           >
+            <Box size={18} />
+            <span>3D View</span>
+          </div>
+          <div 
+            className={`nav-item ${activeView === 'batch' ? 'active' : ''}`}
+            onClick={() => setActiveView('batch')}
+          >
+            <Grid3X3 size={18} />
+            <span>Batch Experiments</span>
+          </div>
+          <div className="nav-item" onClick={() => setShowImportModal(true)}>
             <Upload size={18} />
             <span>Import Data</span>
           </div>
-          <div className="nav-item relative" data-testid="nav-export">
+          <div className="nav-item relative">
             <Download size={18} />
             <span onClick={() => setShowExportMenu(!showExportMenu)}>Export Data</span>
             {showExportMenu && (
               <ExportMenu simulationId={simulationId} onClose={() => setShowExportMenu(false)} />
             )}
           </div>
+          
+          <div className="border-t border-slate-200 my-3" />
+          
           <a 
             href="/docs/README.md" 
             target="_blank" 
             rel="noopener noreferrer"
             className="nav-item"
-            data-testid="nav-docs"
           >
             <FileText size={18} />
             <span>Documentation</span>
           </a>
-          
-          <div className="nav-item" data-testid="nav-settings">
-            <Settings size={18} />
-            <span>Settings</span>
-          </div>
         </nav>
       </aside>
       
@@ -570,7 +553,10 @@ export default function LandingOSDashboard() {
         {/* Top Bar */}
         <header className="top-bar">
           <div className="flex items-center gap-4">
-            <h2 className="font-heading text-lg font-semibold text-slate-800">Mission Control</h2>
+            <h2 className="font-heading text-lg font-semibold text-slate-800">
+              {activeView === 'dashboard' ? 'Mission Control' : 
+               activeView === '3d' ? '3D Visualization' : 'Batch Experiments'}
+            </h2>
             <div className="flex items-center gap-2">
               <div className={`status-indicator ${isRunning ? 'running' : simData?.status === 'landed' ? 'idle' : 'stopped'}`} />
               <span className="text-sm text-slate-600">
@@ -579,12 +565,26 @@ export default function LandingOSDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-6">
+            {/* SNN Toggle */}
+            <div className="toggle-container">
+              <Cpu size={16} className={snnEnabled ? 'text-purple-600' : 'text-slate-400'} />
+              <span className="toggle-label">SNN Processing</span>
+              <button
+                onClick={() => setSnnEnabled(!snnEnabled)}
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  snnEnabled ? 'bg-purple-500' : 'bg-slate-300'
+                }`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                  snnEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
             {/* Comparison Toggle */}
             <div className="toggle-container">
               <GitCompare size={16} className={comparisonEnabled ? 'text-orange-600' : 'text-slate-400'} />
               <span className="toggle-label">Compare FVO</span>
               <button
-                data-testid="comparison-toggle"
                 onClick={toggleComparison}
                 className={`relative w-11 h-6 rounded-full transition-colors ${
                   comparisonEnabled ? 'bg-orange-500' : 'bg-slate-300'
@@ -595,307 +595,308 @@ export default function LandingOSDashboard() {
                 }`} />
               </button>
             </div>
-            {/* AI Toggle */}
-            <div className="toggle-container">
-              <Brain size={16} className={aiEnabled ? 'text-blue-600' : 'text-slate-400'} />
-              <span className="toggle-label">AI Analysis</span>
-              <button
-                data-testid="ai-toggle"
-                onClick={() => setAiEnabled(!aiEnabled)}
-                className={`relative w-11 h-6 rounded-full transition-colors ${
-                  aiEnabled ? 'bg-blue-600' : 'bg-slate-300'
-                }`}
-              >
-                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                  aiEnabled ? 'translate-x-6' : 'translate-x-1'
-                }`} />
-              </button>
-            </div>
           </div>
         </header>
         
-        {/* Bento Grid Dashboard */}
-        <div className="bento-grid">
-          {/* Event Visualization - Large */}
-          <div className="bento-card col-span-8 row-span-2" style={{ minHeight: '400px' }}>
-            <div className="bento-card-header">
-              <span className="bento-card-title">Event Camera View</span>
-              <div className="flex gap-2">
-                <button
-                  data-testid="btn-play"
-                  onClick={() => setIsRunning(!isRunning)}
-                  className="btn-primary btn-lift"
-                  disabled={!simulationId || simData?.status === 'landed'}
-                >
-                  {isRunning ? <Pause size={16} /> : <Play size={16} />}
-                  {isRunning ? 'Pause' : 'Start'}
-                </button>
-                <button
-                  data-testid="btn-reset"
-                  onClick={resetSimulation}
-                  className="btn-secondary"
-                >
-                  <RotateCcw size={16} />
-                </button>
-              </div>
-            </div>
-            <div className="bento-card-content flex gap-4" style={{ height: 'calc(100% - 64px)' }}>
-              <div className="flex-1 bg-slate-900 rounded-lg overflow-hidden">
-                <EventCanvas events={events} />
-              </div>
-              <AltitudeIndicator altitude={altitude} maxAltitude={config.initial_altitude} />
-            </div>
-          </div>
-          
-          {/* Metrics Panel */}
-          <div className="bento-card col-span-4">
-            <div className="bento-card-header">
-              <span className="bento-card-title">Performance Metrics</span>
-              <Gauge size={16} className="text-slate-400" />
-            </div>
-            <div className="bento-card-content">
-              <div className="metric-grid">
-                <div className="metric-item" data-testid="metric-altitude">
-                  <div className="metric-label">Altitude</div>
-                  <div className={`metric-value ${altitude < 100 ? 'warning' : ''}`}>
-                    {altitude.toFixed(1)}m
-                  </div>
-                </div>
-                <div className="metric-item" data-testid="metric-pos-error">
-                  <div className="metric-label">Position Error</div>
-                  <div className={`metric-value ${metrics.position_error > 5 ? 'error' : metrics.position_error < 1 ? 'success' : ''}`}>
-                    {(metrics.position_error || 0).toFixed(2)}m
-                  </div>
-                </div>
-                <div className="metric-item" data-testid="metric-att-error">
-                  <div className="metric-label">Attitude Error</div>
-                  <div className="metric-value">
-                    {(metrics.attitude_error || 0).toFixed(2)}&deg;
-                  </div>
-                </div>
-                <div className="metric-item" data-testid="metric-latency">
-                  <div className="metric-label">Latency</div>
-                  <div className={`metric-value ${metrics.latency_ms > 5 ? 'warning' : 'success'}`}>
-                    {(metrics.latency_ms || 0).toFixed(1)}ms
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-slate-100">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Events Generated</span>
-                  <span className="font-mono font-medium text-blue-600" data-testid="total-events">
-                    {(simData?.total_events || 0).toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm mt-2">
-                  <span className="text-slate-500">Drift Rate</span>
-                  <span className="font-mono font-medium">
-                    {(metrics.drift_rate || 0).toFixed(4)} m/s
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Pose Comparison */}
-          <div className="bento-card col-span-4">
-            <div className="bento-card-header">
-              <span className="bento-card-title">Pose Estimation</span>
-              <Box size={16} className="text-slate-400" />
-            </div>
-            <div className="bento-card-content space-y-3">
-              <PoseDisplay pose={currentGT} label="Ground Truth" color="#0055FF" />
-              <PoseDisplay pose={currentEst} label="EVO Estimate" color="#FF5F00" />
-            </div>
-          </div>
-          
-          {/* Configuration Panel */}
-          <div className="bento-card col-span-4">
-            <div className="bento-card-header">
-              <span className="bento-card-title">Configuration</span>
-              <Settings size={16} className="text-slate-400" />
-            </div>
-            <div className="bento-card-content space-y-3">
-              <div>
-                <label className="text-xs font-medium text-slate-500 uppercase">Terrain</label>
-                <select
-                  data-testid="select-terrain"
-                  className="select-scientific mt-1"
-                  value={config.terrain_type}
-                  onChange={e => setConfig({ ...config, terrain_type: e.target.value })}
-                  disabled={isRunning}
-                >
-                  <option value="lunar">Lunar Surface</option>
-                  <option value="mars">Martian Surface</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase">Altitude (m)</label>
-                  <input
-                    data-testid="input-altitude"
-                    type="number"
-                    className="input-scientific mt-1"
-                    value={config.initial_altitude}
-                    onChange={e => setConfig({ ...config, initial_altitude: Number(e.target.value) })}
-                    disabled={isRunning}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase">Velocity (m/s)</label>
-                  <input
-                    data-testid="input-velocity"
-                    type="number"
-                    className="input-scientific mt-1"
-                    value={config.descent_velocity}
-                    onChange={e => setConfig({ ...config, descent_velocity: Number(e.target.value) })}
-                    disabled={isRunning}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase">Vibration (&deg;)</label>
-                  <input
-                    data-testid="input-vibration"
-                    type="number"
-                    step="0.1"
-                    className="input-scientific mt-1"
-                    value={config.vibration_amplitude}
-                    onChange={e => setConfig({ ...config, vibration_amplitude: Number(e.target.value) })}
-                    disabled={isRunning}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase">Noise Level</label>
-                  <input
-                    data-testid="input-noise"
-                    type="number"
-                    step="0.05"
-                    min="0"
-                    max="1"
-                    className="input-scientific mt-1"
-                    value={config.noise_level}
-                    onChange={e => setConfig({ ...config, noise_level: Number(e.target.value) })}
-                    disabled={isRunning}
-                  />
-                </div>
-              </div>
-              <button
-                data-testid="btn-new-sim"
-                onClick={createSimulation}
-                className="btn-secondary w-full mt-2"
-                disabled={isRunning}
-              >
-                New Simulation
-              </button>
-            </div>
-          </div>
-          
-          {/* Performance Chart */}
-          <div className="bento-card col-span-6">
-            <div className="bento-card-header">
-              <span className="bento-card-title">Position Error Over Time</span>
-              <Activity size={16} className="text-slate-400" />
-            </div>
-            <div className="bento-card-content" style={{ height: '200px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={metricsHistory}>
-                  <defs>
-                    <linearGradient id="colorError" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0055FF" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#0055FF" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                  <XAxis 
-                    dataKey="time" 
-                    tickFormatter={v => `${v?.toFixed(1) || 0}s`}
-                    stroke="#94A3B8"
-                    fontSize={11}
-                  />
-                  <YAxis stroke="#94A3B8" fontSize={11} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      background: 'white', 
-                      border: '1px solid #E2E8F0',
-                      borderRadius: '6px',
-                      fontSize: '12px'
-                    }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="position_error" 
-                    stroke="#0055FF" 
-                    fill="url(#colorError)" 
-                    strokeWidth={2}
-                    name="Position Error (m)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-          
-          {/* Latency Chart */}
-          <div className="bento-card col-span-6">
-            <div className="bento-card-header">
-              <span className="bento-card-title">Processing Latency</span>
-              <Clock size={16} className="text-slate-400" />
-            </div>
-            <div className="bento-card-content" style={{ height: '200px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={metricsHistory}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                  <XAxis 
-                    dataKey="time" 
-                    tickFormatter={v => `${v?.toFixed(1) || 0}s`}
-                    stroke="#94A3B8"
-                    fontSize={11}
-                  />
-                  <YAxis stroke="#94A3B8" fontSize={11} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      background: 'white', 
-                      border: '1px solid #E2E8F0',
-                      borderRadius: '6px',
-                      fontSize: '12px'
-                    }}
-                  />
-                  <RechartsLine 
-                    type="monotone" 
-                    dataKey="latency_ms" 
-                    stroke="#FF5F00" 
-                    strokeWidth={2}
-                    dot={false}
-                    name="Latency (ms)"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-          
-          {/* VO Comparison Panel - Show when comparison enabled */}
-          {comparisonEnabled && (
-            <div className="bento-card col-span-12">
+        {/* View Content */}
+        {activeView === 'dashboard' && (
+          <div className="bento-grid">
+            {/* Event Visualization */}
+            <div className="bento-card col-span-8 row-span-2" style={{ minHeight: '400px' }}>
               <div className="bento-card-header">
-                <span className="bento-card-title">Visual Odometry Comparison: Event-Based vs Frame-Based</span>
-                <button
-                  data-testid="btn-get-comparison"
-                  onClick={fetchComparison}
-                  className="btn-secondary"
-                  disabled={!simulationId || isRunning}
-                >
-                  <GitCompare size={16} /> Get Results
-                </button>
+                <span className="bento-card-title">
+                  Event Camera View {snnEnabled && <span className="text-purple-600 text-xs ml-2">(SNN)</span>}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShow3D(!show3D)}
+                    className="btn-secondary"
+                  >
+                    {show3D ? <Eye size={16} /> : <EyeOff size={16} />}
+                    {show3D ? '2D' : '3D'}
+                  </button>
+                  <button
+                    onClick={() => setIsRunning(!isRunning)}
+                    className="btn-primary btn-lift"
+                    disabled={!simulationId || simData?.status === 'landed'}
+                  >
+                    {isRunning ? <Pause size={16} /> : <Play size={16} />}
+                    {isRunning ? 'Pause' : 'Start'}
+                  </button>
+                  <button
+                    onClick={resetSimulation}
+                    className="btn-secondary"
+                  >
+                    <RotateCcw size={16} />
+                  </button>
+                </div>
+              </div>
+              <div className="bento-card-content flex gap-4" style={{ height: 'calc(100% - 64px)' }}>
+                {show3D ? (
+                  <div className="flex-1 rounded-lg overflow-hidden">
+                    <Scene3D
+                      terrainData={terrain3DData}
+                      currentPose={currentGT}
+                      groundTruthTrajectory={groundTruth}
+                      estimatedTrajectory={estimated}
+                      events={events}
+                      corners={corners}
+                      isRunning={isRunning}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex-1 bg-slate-900 rounded-lg overflow-hidden">
+                    <EventCanvas events={events} corners={corners} />
+                  </div>
+                )}
+                <AltitudeIndicator altitude={altitude} maxAltitude={config.initial_altitude} />
+              </div>
+            </div>
+            
+            {/* Metrics Panel */}
+            <div className="bento-card col-span-4">
+              <div className="bento-card-header">
+                <span className="bento-card-title">Performance Metrics</span>
+                <Gauge size={16} className="text-slate-400" />
               </div>
               <div className="bento-card-content">
-                {comparisonResults ? (
+                <div className="metric-grid">
+                  <div className="metric-item">
+                    <div className="metric-label">Altitude</div>
+                    <div className={`metric-value ${altitude < 100 ? 'warning' : ''}`}>
+                      {altitude.toFixed(1)}m
+                    </div>
+                  </div>
+                  <div className="metric-item">
+                    <div className="metric-label">Position Error</div>
+                    <div className={`metric-value ${metrics.position_error > 5 ? 'error' : metrics.position_error < 1 ? 'success' : ''}`}>
+                      {(metrics.position_error || 0).toFixed(2)}m
+                    </div>
+                  </div>
+                  <div className="metric-item">
+                    <div className="metric-label">Attitude Error</div>
+                    <div className="metric-value">
+                      {(metrics.attitude_error || 0).toFixed(2)}°
+                    </div>
+                  </div>
+                  <div className="metric-item">
+                    <div className="metric-label">Latency</div>
+                    <div className={`metric-value ${metrics.latency_ms > 5 ? 'warning' : 'success'}`}>
+                      {(metrics.latency_ms || 0).toFixed(1)}ms
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-100">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Events Generated</span>
+                    <span className="font-mono font-medium text-blue-600">
+                      {(simData?.total_events || 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm mt-2">
+                    <span className="text-slate-500">Drift Rate</span>
+                    <span className="font-mono font-medium">
+                      {(metrics.drift_rate || 0).toFixed(4)} m/s
+                    </span>
+                  </div>
+                  {snnEnabled && (
+                    <>
+                      <div className="flex justify-between text-sm mt-2">
+                        <span className="text-slate-500">Corners Detected</span>
+                        <span className="font-mono font-medium text-purple-600">
+                          {simData?.corners_detected || 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm mt-2">
+                        <span className="text-slate-500">Features Tracked</span>
+                        <span className="font-mono font-medium text-purple-600">
+                          {simData?.features_tracked || 0}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Pose Comparison */}
+            <div className="bento-card col-span-4">
+              <div className="bento-card-header">
+                <span className="bento-card-title">Pose Estimation</span>
+                <Box size={16} className="text-slate-400" />
+              </div>
+              <div className="bento-card-content space-y-3">
+                <PoseDisplay pose={currentGT} label="Ground Truth" color="#0055FF" />
+                <PoseDisplay pose={currentEst} label="EVO Estimate" color="#FF5F00" />
+              </div>
+            </div>
+            
+            {/* Configuration Panel */}
+            <div className="bento-card col-span-4">
+              <div className="bento-card-header">
+                <span className="bento-card-title">Configuration</span>
+                <Settings size={16} className="text-slate-400" />
+              </div>
+              <div className="bento-card-content space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-slate-500 uppercase">Terrain</label>
+                  <select
+                    className="select-scientific mt-1"
+                    value={config.terrain_type}
+                    onChange={e => setConfig({ ...config, terrain_type: e.target.value })}
+                    disabled={isRunning}
+                  >
+                    <option value="lunar">Lunar Surface</option>
+                    <option value="mars">Martian Surface</option>
+                    <option value="asteroid">Asteroid</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 uppercase">Altitude (m)</label>
+                    <input
+                      type="number"
+                      className="input-scientific mt-1"
+                      value={config.initial_altitude}
+                      onChange={e => setConfig({ ...config, initial_altitude: Number(e.target.value) })}
+                      disabled={isRunning}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 uppercase">Velocity (m/s)</label>
+                    <input
+                      type="number"
+                      className="input-scientific mt-1"
+                      value={config.descent_velocity}
+                      onChange={e => setConfig({ ...config, descent_velocity: Number(e.target.value) })}
+                      disabled={isRunning}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 uppercase">Vibration (°)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="input-scientific mt-1"
+                      value={config.vibration_amplitude}
+                      onChange={e => setConfig({ ...config, vibration_amplitude: Number(e.target.value) })}
+                      disabled={isRunning}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 uppercase">Noise Level</label>
+                    <input
+                      type="number"
+                      step="0.05"
+                      min="0"
+                      max="1"
+                      className="input-scientific mt-1"
+                      value={config.noise_level}
+                      onChange={e => setConfig({ ...config, noise_level: Number(e.target.value) })}
+                      disabled={isRunning}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={createSimulation}
+                  className="btn-secondary w-full mt-2"
+                  disabled={isRunning}
+                >
+                  New Simulation
+                </button>
+              </div>
+            </div>
+            
+            {/* Performance Chart */}
+            <div className="bento-card col-span-6">
+              <div className="bento-card-header">
+                <span className="bento-card-title">Position Error Over Time</span>
+                <Activity size={16} className="text-slate-400" />
+              </div>
+              <div className="bento-card-content" style={{ height: '200px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={metricsHistory}>
+                    <defs>
+                      <linearGradient id="colorError" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0055FF" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#0055FF" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                    <XAxis 
+                      dataKey="time" 
+                      tickFormatter={v => `${v?.toFixed(1) || 0}s`}
+                      stroke="#94A3B8"
+                      fontSize={11}
+                    />
+                    <YAxis stroke="#94A3B8" fontSize={11} />
+                    <Tooltip />
+                    <Area 
+                      type="monotone" 
+                      dataKey="position_error" 
+                      stroke="#0055FF" 
+                      fill="url(#colorError)" 
+                      strokeWidth={2}
+                      name="Position Error (m)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            
+            {/* Latency Chart */}
+            <div className="bento-card col-span-6">
+              <div className="bento-card-header">
+                <span className="bento-card-title">Processing Latency</span>
+                <Clock size={16} className="text-slate-400" />
+              </div>
+              <div className="bento-card-content" style={{ height: '200px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={metricsHistory}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                    <XAxis 
+                      dataKey="time" 
+                      tickFormatter={v => `${v?.toFixed(1) || 0}s`}
+                      stroke="#94A3B8"
+                      fontSize={11}
+                    />
+                    <YAxis stroke="#94A3B8" fontSize={11} />
+                    <Tooltip />
+                    <RechartsLine 
+                      type="monotone" 
+                      dataKey="latency_ms" 
+                      stroke="#FF5F00" 
+                      strokeWidth={2}
+                      dot={false}
+                      name="Latency (ms)"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            
+            {/* VO Comparison Panel */}
+            {comparisonEnabled && comparisonResults && (
+              <div className="bento-card col-span-12">
+                <div className="bento-card-header">
+                  <span className="bento-card-title">Visual Odometry Comparison: Event-Based vs Frame-Based</span>
+                  <button
+                    onClick={fetchComparison}
+                    className="btn-secondary"
+                    disabled={!simulationId || isRunning}
+                  >
+                    <GitCompare size={16} /> Refresh
+                  </button>
+                </div>
+                <div className="bento-card-content">
                   <div className="grid grid-cols-3 gap-6">
                     {/* EVO Results */}
                     <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                       <div className="flex items-center gap-2 mb-3">
                         <Zap size={18} className="text-blue-600" />
-                        <span className="font-semibold text-blue-900">Event-Based VO</span>
+                        <span className="font-semibold text-blue-900">Event-Based VO {snnEnabled && '(SNN)'}</span>
                       </div>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
@@ -910,12 +911,6 @@ export default function LandingOSDashboard() {
                             {comparisonResults.event_based_vo?.average_attitude_error?.toFixed(3)}°
                           </span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">Final Error</span>
-                          <span className="font-mono font-medium">
-                            {comparisonResults.event_based_vo?.final_position_error?.toFixed(3)}m
-                          </span>
-                        </div>
                       </div>
                     </div>
                     
@@ -923,7 +918,7 @@ export default function LandingOSDashboard() {
                     <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
                       <div className="flex items-center gap-2 mb-3">
                         <Activity size={18} className="text-orange-600" />
-                        <span className="font-semibold text-orange-900">Frame-Based VO ({comparisonResults.frame_based_vo?.frame_rate} FPS)</span>
+                        <span className="font-semibold text-orange-900">Frame-Based VO</span>
                       </div>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
@@ -938,24 +933,18 @@ export default function LandingOSDashboard() {
                             {comparisonResults.frame_based_vo?.average_attitude_error?.toFixed(3)}°
                           </span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">Final Error</span>
-                          <span className="font-mono font-medium">
-                            {comparisonResults.frame_based_vo?.final_position_error?.toFixed(3)}m
-                          </span>
-                        </div>
                       </div>
                     </div>
                     
-                    {/* Comparison Summary */}
+                    {/* Winner */}
                     <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
                       <div className="flex items-center gap-2 mb-3">
                         <GitCompare size={18} className="text-slate-600" />
-                        <span className="font-semibold text-slate-900">Comparison</span>
+                        <span className="font-semibold text-slate-900">Winner</span>
                       </div>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-slate-600">Position Winner</span>
+                          <span className="text-slate-600">Position</span>
                           <span className={`font-medium ${
                             comparisonResults.comparison?.position_accuracy_winner === 'EVO' 
                               ? 'text-blue-600' : 'text-orange-600'
@@ -964,16 +953,7 @@ export default function LandingOSDashboard() {
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-600">Attitude Winner</span>
-                          <span className={`font-medium ${
-                            comparisonResults.comparison?.attitude_accuracy_winner === 'EVO' 
-                              ? 'text-blue-600' : 'text-orange-600'
-                          }`}>
-                            {comparisonResults.comparison?.attitude_accuracy_winner}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">EVO Improvement</span>
+                          <span className="text-slate-600">Improvement</span>
                           <span className={`font-mono font-medium ${
                             comparisonResults.comparison?.evo_position_improvement_percent > 0 
                               ? 'text-green-600' : 'text-red-600'
@@ -983,148 +963,56 @@ export default function LandingOSDashboard() {
                           </span>
                         </div>
                       </div>
-                      <div className="mt-3 pt-3 border-t border-slate-200">
-                        <p className="text-xs text-slate-600 italic">
-                          {comparisonResults.comparison?.recommendation}
-                        </p>
-                      </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <GitCompare size={32} className="mx-auto text-slate-400 mb-2" />
-                    <p className="text-slate-600">Run a simulation and click "Get Results" to compare EVO vs Frame-Based VO.</p>
-                    <p className="text-sm text-slate-400 mt-2">Frame-Based VO simulates traditional 30 FPS camera visual odometry.</p>
-                  </div>
-                )}
+                </div>
               </div>
-            </div>
-          )}
-          
-          {/* AI Analysis Panel */}
-          <div className="bento-card col-span-12">
-            <div className="bento-card-header">
-              <span className="bento-card-title">AI-Powered Analysis</span>
-              <div className="flex items-center gap-2">
-                {aiAvailable ? (
-                  <span className="flex items-center gap-1 text-xs text-green-600">
-                    <CheckCircle size={14} /> Available
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-xs text-amber-600">
-                    <AlertTriangle size={14} /> Disabled
-                  </span>
-                )}
+            )}
+          </div>
+        )}
+        
+        {/* 3D View */}
+        {activeView === '3d' && (
+          <div className="h-[calc(100vh-120px)] rounded-lg overflow-hidden">
+            <Scene3D
+              terrainData={terrain3DData}
+              currentPose={currentGT}
+              groundTruthTrajectory={groundTruth}
+              estimatedTrajectory={estimated}
+              events={events}
+              corners={corners}
+              isRunning={isRunning}
+              followCamera={true}
+            />
+            {/* 3D Controls Overlay */}
+            <div className="absolute bottom-4 left-4 bg-white/90 rounded-lg p-4 shadow-lg">
+              <div className="flex gap-3">
                 <button
-                  data-testid="btn-ai-analyze"
-                  onClick={requestAiAnalysis}
-                  className="btn-primary btn-lift"
-                  disabled={!simulationId || !aiEnabled || !aiAvailable || aiLoading}
+                  onClick={() => setIsRunning(!isRunning)}
+                  className="btn-primary"
+                  disabled={!simulationId || simData?.status === 'landed'}
                 >
-                  {aiLoading ? (
-                    <><span className="spinner" /> Analyzing...</>
-                  ) : (
-                    <><Brain size={16} /> Analyze Results</>
-                  )}
+                  {isRunning ? <Pause size={16} /> : <Play size={16} />}
+                  {isRunning ? 'Pause' : 'Start'}
+                </button>
+                <button onClick={resetSimulation} className="btn-secondary">
+                  <RotateCcw size={16} /> Reset
                 </button>
               </div>
-            </div>
-            <div className="bento-card-content">
-              {!aiEnabled ? (
-                <div className="ai-panel disabled text-center py-8">
-                  <Brain size={32} className="mx-auto text-slate-400 mb-2" />
-                  <p className="text-slate-500">AI Analysis is disabled. Enable it using the toggle above.</p>
-                </div>
-              ) : aiAnalysis ? (
-                <div className="ai-panel">
-                  {aiAnalysis.error ? (
-                    <div className="flex items-center gap-2 text-red-600">
-                      <AlertTriangle size={16} />
-                      <span>{aiAnalysis.error}</span>
-                    </div>
-                  ) : (
-                    <div className="prose prose-sm max-w-none">
-                      <div className="whitespace-pre-wrap text-slate-700 text-sm leading-relaxed">
-                        {aiAnalysis.analysis || aiAnalysis.message}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="ai-panel text-center py-8">
-                  <Cpu size={32} className="mx-auto text-blue-400 mb-2" />
-                  <p className="text-slate-600">Run a simulation and click "Analyze Results" for AI-powered insights.</p>
-                </div>
-              )}
+              <div className="mt-3 text-sm text-slate-600">
+                <div>Altitude: <span className="font-mono font-medium">{altitude.toFixed(1)}m</span></div>
+                <div>Events: <span className="font-mono font-medium">{(simData?.total_events || 0).toLocaleString()}</span></div>
+              </div>
             </div>
           </div>
-          
-          {/* Imported Hardware Data Display */}
-          {importedDataset && (
-            <div className="bento-card col-span-12">
-              <div className="bento-card-header">
-                <span className="bento-card-title">Imported Hardware Data</span>
-                <button
-                  onClick={() => setImportedDataset(null)}
-                  className="btn-secondary text-sm"
-                >
-                  <X size={14} /> Clear
-                </button>
-              </div>
-              <div className="bento-card-content">
-                <div className="grid grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-slate-50 rounded-lg">
-                    <div className="text-xs text-slate-500 uppercase">File</div>
-                    <div className="font-mono text-sm truncate">{importedDataset.name}</div>
-                  </div>
-                  <div className="text-center p-3 bg-slate-50 rounded-lg">
-                    <div className="text-xs text-slate-500 uppercase">Format</div>
-                    <div className="font-mono text-sm uppercase">{importedDataset.format}</div>
-                  </div>
-                  <div className="text-center p-3 bg-slate-50 rounded-lg">
-                    <div className="text-xs text-slate-500 uppercase">Total Events</div>
-                    <div className="font-mono text-sm text-blue-600">{importedDataset.total_events?.toLocaleString()}</div>
-                  </div>
-                  <div className="text-center p-3 bg-slate-50 rounded-lg">
-                    <div className="text-xs text-slate-500 uppercase">Duration</div>
-                    <div className="font-mono text-sm">{importedDataset.duration_ms?.toFixed(1)} ms</div>
-                  </div>
-                </div>
-                {importedDataset.sample_events && importedDataset.sample_events.length > 0 && (
-                  <div className="mt-4">
-                    <div className="text-xs text-slate-500 uppercase mb-2">Sample Events</div>
-                    <div className="bg-slate-900 rounded-lg p-3 overflow-x-auto">
-                      <table className="w-full text-xs font-mono text-slate-300">
-                        <thead>
-                          <tr className="text-slate-500">
-                            <th className="px-2 py-1 text-left">X</th>
-                            <th className="px-2 py-1 text-left">Y</th>
-                            <th className="px-2 py-1 text-left">Timestamp</th>
-                            <th className="px-2 py-1 text-left">Polarity</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {importedDataset.sample_events.slice(0, 5).map((e, i) => (
-                            <tr key={i}>
-                              <td className="px-2 py-1">{e.x}</td>
-                              <td className="px-2 py-1">{e.y}</td>
-                              <td className="px-2 py-1">{e.timestamp}</td>
-                              <td className="px-2 py-1">
-                                <span className={e.polarity > 0 ? 'text-blue-400' : 'text-orange-400'}>
-                                  {e.polarity > 0 ? '+1' : '-1'}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        )}
+        
+        {/* Batch Experiments View */}
+        {activeView === 'batch' && (
+          <div className="p-6">
+            <BatchExperimentsPanel />
+          </div>
+        )}
       </main>
       
       {/* Import Modal */}
