@@ -117,13 +117,28 @@ function EventCloud({ events }) {
   );
 }
 
-// Trajectory line
+// Trajectory line using native Three.js line
 function TrajectoryLine({ poses, color = '#0055FF' }) {
-  if (!poses || poses.length < 2) return null;
+  const lineRef = useRef();
   
-  const points = poses.map(p => new THREE.Vector3(p.x * 0.1, p.z * 0.1, p.y * 0.1));
+  const points = React.useMemo(() => {
+    if (!poses || poses.length < 2) return null;
+    return poses.map(p => new THREE.Vector3(p.x * 0.1, p.z * 0.1, p.y * 0.1));
+  }, [poses]);
   
-  return <Line points={points} color={color} lineWidth={2} />;
+  if (!points) return null;
+  
+  const geometry = React.useMemo(() => {
+    const geo = new THREE.BufferGeometry().setFromPoints(points);
+    return geo;
+  }, [points]);
+  
+  return (
+    <line ref={lineRef}>
+      <primitive object={geometry} attach="geometry" />
+      <lineBasicMaterial color={color} linewidth={2} />
+    </line>
+  );
 }
 
 // Main Dashboard Component
