@@ -130,6 +130,149 @@ function PoseDisplay({ pose, label, color }) {
   );
 }
 
+// Hardware Import Modal
+function ImportModal({ isOpen, onClose, onImport }) {
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [error, setError] = useState(null);
+  const fileInputRef = useRef(null);
+  
+  const handleFileSelect = async (file) => {
+    if (!file) return;
+    
+    setUploading(true);
+    setError(null);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await axios.post(`${API_URL}/api/landingos/import/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      onImport(res.data);
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+  
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    handleFileSelect(file);
+  };
+  
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" data-testid="import-modal">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+          <h3 className="font-heading text-lg font-semibold text-slate-800">Import Hardware Data</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-6">
+          <div
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              dragOver ? 'border-blue-500 bg-blue-50' : 'border-slate-300'
+            }`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+          >
+            <Upload size={40} className="mx-auto text-slate-400 mb-4" />
+            <p className="text-slate-600 mb-2">Drag & drop event camera file here</p>
+            <p className="text-sm text-slate-400 mb-4">or</p>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept=".csv,.json,.txt,.npy,.aedat,.aedat4,.raw"
+              onChange={(e) => handleFileSelect(e.target.files[0])}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="btn-primary"
+              disabled={uploading}
+              data-testid="btn-browse-files"
+            >
+              {uploading ? 'Uploading...' : 'Browse Files'}
+            </button>
+          </div>
+          
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+              {error}
+            </div>
+          )}
+          
+          <div className="mt-4 text-xs text-slate-500">
+            <p className="font-medium mb-1">Supported formats:</p>
+            <p>CSV, JSON, TXT, NumPy (.npy), AEDAT 4.0, Prophesee RAW</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Export Menu
+function ExportMenu({ simulationId, onClose }) {
+  const handleExport = async (type, format) => {
+    if (!simulationId) return;
+    
+    let url;
+    if (type === 'events') {
+      url = `${API_URL}/api/landingos/export/simulation/${simulationId}/events?format=${format}`;
+    } else if (type === 'trajectory') {
+      url = `${API_URL}/api/landingos/export/simulation/${simulationId}/trajectory?format=${format}`;
+    }
+    
+    // Trigger download
+    window.open(url, '_blank');
+    onClose();
+  };
+  
+  return (
+    <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-slate-200 py-2 w-48 z-20" data-testid="export-menu">
+      <div className="px-3 py-1 text-xs font-medium text-slate-400 uppercase">Events</div>
+      <button
+        onClick={() => handleExport('events', 'csv')}
+        className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+      >
+        Export as CSV
+      </button>
+      <button
+        onClick={() => handleExport('events', 'json')}
+        className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+      >
+        Export as JSON
+      </button>
+      <div className="border-t border-slate-100 my-1" />
+      <div className="px-3 py-1 text-xs font-medium text-slate-400 uppercase">Trajectory</div>
+      <button
+        onClick={() => handleExport('trajectory', 'csv')}
+        className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+      >
+        Export as CSV
+      </button>
+      <button
+        onClick={() => handleExport('trajectory', 'json')}
+        className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+      >
+        Export as JSON
+      </button>
+    </div>
+  );
+}
+
 // Main Dashboard Component
 export default function LandingOSDashboard() {
   const [simulationId, setSimulationId] = useState(null);
@@ -143,6 +286,9 @@ export default function LandingOSDashboard() {
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAvailable, setAiAvailable] = useState(true);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [importedDataset, setImportedDataset] = useState(null);
   const intervalRef = useRef(null);
   
   // Configuration state
