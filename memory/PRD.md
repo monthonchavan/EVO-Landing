@@ -10,81 +10,147 @@ Build an integrated platform for "Event-Driven Visual Navigation for Precision P
 - Synthetic data generation pipeline
 - Event-Based Visual Odometry algorithm implementation
 - Research documentation and experiment management
+- **Hardware data import from physical event cameras**
+- **Comprehensive project documentation**
 
 ## Architecture
-- **Backend**: FastAPI (Python)
-  - EVO Simulation Engine (`evo_engine.py`)
-  - AI Analysis Module (`ai_analysis.py`) - GPT-4o powered
-  - LandingOS API (`landingos_api.py`)
-- **Frontend**: React with Recharts
-  - Bento Grid Dashboard Layout
-  - 2D Event Camera Visualization (Canvas)
-  - Real-time Performance Charts
-  - Configuration Controls
-- **Database**: MongoDB
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        LandingOS Platform                        │
+├─────────────────────────────────────────────────────────────────┤
+│  Frontend (React)          │  Backend (FastAPI)                 │
+│  - Bento Grid Dashboard    │  - EVO Simulation Engine           │
+│  - Event Canvas (2D)       │  - AI Analysis (GPT-4o)            │
+│  - Performance Charts      │  - Hardware Import Parser          │
+│  - Import/Export UI        │  - Data Export Module              │
+│  - AI Toggle Control       │  - WebSocket Real-time             │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ## What's Been Implemented (Jan 2026)
 
-### Backend Features
-- [x] EVO Simulation Engine with terrain generation
-- [x] Event camera simulator (neuromorphic)
+### Core Features ✅
+- [x] EVO Simulation Engine with terrain generation (Lunar/Mars)
+- [x] Event camera simulator (neuromorphic events)
 - [x] Visual odometry algorithm (feature detection, pose estimation)
-- [x] Simulation management APIs (create, step, reset, delete)
-- [x] Experiment management APIs
-- [x] AI-powered analysis using GPT-4o
-- [x] Terrain types (Lunar, Mars)
+- [x] Performance metrics (Position Error, Attitude Error, Drift Rate, Latency)
+- [x] Real-time visualization with charts
 
-### Frontend Features
-- [x] Scientific light theme (Orbital Laboratory)
-- [x] Sidebar navigation
-- [x] Event camera visualization canvas
-- [x] Altitude indicator
-- [x] Performance metrics panel (Altitude, Position Error, Attitude Error, Latency)
-- [x] Pose estimation comparison (Ground Truth vs EVO)
-- [x] Configuration controls (terrain, altitude, velocity, vibration, noise)
-- [x] Position Error Over Time chart
-- [x] Processing Latency chart
-- [x] AI Analysis panel with toggle switch
-- [x] Start/Pause/Reset simulation controls
+### AI Analysis ✅
+- [x] GPT-4o powered experiment analysis
+- [x] Toggle switch to enable/disable AI
+- [x] Performance assessment and optimization suggestions
+- [x] Experiment comparison capabilities
+
+### Hardware Integration ✅ (NEW)
+- [x] CSV import (x, y, timestamp, polarity)
+- [x] JSON import (event arrays)
+- [x] NumPy (.npy) import
+- [x] AEDAT 4.0 format (Prophesee/iniVation)
+- [x] Prophesee RAW format
+- [x] Text file import (space/tab separated)
+- [x] Drag & drop upload interface
+- [x] Dataset management
+
+### Data Export ✅ (NEW)
+- [x] Events export (CSV/JSON)
+- [x] Trajectory export (CSV/JSON)
+- [x] Experiment data export
+- [x] Download functionality
+
+### Real-time Features ✅ (NEW)
+- [x] WebSocket endpoint for streaming updates
+- [x] Real-time chart updates
+- [x] Live pose estimation comparison
+
+### Documentation ✅ (NEW)
+- [x] Comprehensive README at /app/docs/README.md
+- [x] API reference with examples
+- [x] Hardware integration guide
+- [x] Algorithm documentation
+- [x] Configuration guide
+- [x] Troubleshooting section
 
 ## API Endpoints
-- `POST /api/landingos/simulation/create` - Create new simulation
-- `POST /api/landingos/simulation/{id}/step` - Advance simulation
-- `GET /api/landingos/simulation/{id}/state` - Get simulation state
-- `POST /api/landingos/simulation/{id}/reset` - Reset simulation
-- `DELETE /api/landingos/simulation/{id}` - Delete simulation
-- `GET /api/landingos/simulations` - List simulations
-- `POST /api/landingos/experiment/create` - Create experiment
-- `POST /api/landingos/experiment/{id}/run` - Run experiment
-- `GET /api/landingos/experiments` - List experiments
-- `POST /api/landingos/ai/analyze` - AI analysis
-- `GET /api/landingos/ai/status` - Check AI availability
-- `GET /api/landingos/terrain/types` - Get terrain types
 
-## Test Results
-- Backend: 100% (17/17 tests passed)
-- Frontend: 100% (All UI components working)
-- Integration: 100% (Backend-Frontend communication perfect)
+### Simulation
+- `POST /api/landingos/simulation/create` - Create simulation
+- `POST /api/landingos/simulation/{id}/step` - Advance simulation
+- `GET /api/landingos/simulation/{id}/state` - Get state
+- `POST /api/landingos/simulation/{id}/reset` - Reset
+- `DELETE /api/landingos/simulation/{id}` - Delete
+
+### Hardware Import
+- `GET /api/landingos/import/formats` - List supported formats
+- `POST /api/landingos/import/upload` - Upload hardware data
+- `GET /api/landingos/import/datasets` - List datasets
+- `GET /api/landingos/import/dataset/{id}` - Get dataset events
+- `DELETE /api/landingos/import/dataset/{id}` - Delete dataset
+
+### Data Export
+- `GET /api/landingos/export/simulation/{id}/events` - Export events
+- `GET /api/landingos/export/simulation/{id}/trajectory` - Export trajectory
+- `GET /api/landingos/export/experiment/{id}` - Export experiment
+
+### AI Analysis
+- `POST /api/landingos/ai/analyze` - Run AI analysis
+- `GET /api/landingos/ai/status` - Check AI availability
+
+### WebSocket
+- `WS /api/landingos/ws/simulation/{id}` - Real-time updates
+
+## Test Results (Iteration 4)
+- **Backend**: 100% (12/12 tests passed)
+- **Frontend**: 95% (19/20 tests passed - 1 minor UI issue)
+- **Overall**: All core features working
+
+## Supported Hardware Formats
+
+| Format | Extension | Manufacturer |
+|--------|-----------|--------------|
+| CSV | .csv | Universal |
+| JSON | .json | Custom |
+| NumPy | .npy | Python |
+| AEDAT 4.0 | .aedat4, .aedat | Prophesee, iniVation |
+| RAW | .raw | Prophesee EVK |
+| Text | .txt | Legacy |
+
+## File Structure
+```
+/app/
+├── backend/
+│   ├── server.py           # Main FastAPI app
+│   ├── landingos_api.py    # LandingOS routes
+│   ├── evo_engine.py       # Simulation engine
+│   ├── ai_analysis.py      # GPT-4o integration
+│   └── hardware_import.py  # Data import/export
+├── frontend/src/
+│   ├── pages/landingos/
+│   │   └── LandingOSDashboard.js
+│   ├── App.js
+│   └── index.css
+├── docs/
+│   └── README.md           # Full documentation
+└── memory/
+    └── PRD.md              # This file
+```
 
 ## Next Steps / Backlog
 
-### P0 (Critical)
-- None remaining
-
 ### P1 (High Priority)
-- [ ] Add 3D visualization with Three.js/React Three Fiber
-- [ ] Implement experiment comparison feature
-- [ ] Add data export functionality (CSV/JSON)
-- [ ] Real-time WebSocket for smoother updates
+- [ ] 3D visualization with Three.js/React Three Fiber
+- [ ] Multiple camera support in simulation
+- [ ] Experiment batch comparison
+- [ ] Report generation (PDF export)
 
 ### P2 (Medium Priority)
-- [ ] Hardware-in-the-Loop (HIL) simulation integration
+- [ ] Hardware-in-the-Loop (HIL) simulation
 - [ ] Spiking Neural Network (SNN) feature detection
-- [ ] Multi-camera support
-- [ ] Custom terrain generation
+- [ ] Custom terrain generation tool
+- [ ] Real hardware integration testing
 
 ### Future Enhancements
-- [ ] Integration with actual event camera hardware (Prophesee/iniVation)
 - [ ] VR/AR visualization mode
 - [ ] Team collaboration features
-- [ ] Paper/report generation from experiments
+- [ ] Auto-generated research papers
+- [ ] Cloud deployment for distributed testing
