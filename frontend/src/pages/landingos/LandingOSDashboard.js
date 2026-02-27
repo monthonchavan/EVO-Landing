@@ -578,20 +578,39 @@ export default function LandingOSDashboard() {
               </span>
             </div>
           </div>
-          <div className="toggle-container">
-            <Brain size={16} className={aiEnabled ? 'text-blue-600' : 'text-slate-400'} />
-            <span className="toggle-label">AI Analysis</span>
-            <button
-              data-testid="ai-toggle"
-              onClick={() => setAiEnabled(!aiEnabled)}
-              className={`relative w-11 h-6 rounded-full transition-colors ${
-                aiEnabled ? 'bg-blue-600' : 'bg-slate-300'
-              }`}
-            >
-              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                aiEnabled ? 'translate-x-6' : 'translate-x-1'
-              }`} />
-            </button>
+          <div className="flex items-center gap-6">
+            {/* Comparison Toggle */}
+            <div className="toggle-container">
+              <GitCompare size={16} className={comparisonEnabled ? 'text-orange-600' : 'text-slate-400'} />
+              <span className="toggle-label">Compare FVO</span>
+              <button
+                data-testid="comparison-toggle"
+                onClick={toggleComparison}
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  comparisonEnabled ? 'bg-orange-500' : 'bg-slate-300'
+                }`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                  comparisonEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+            {/* AI Toggle */}
+            <div className="toggle-container">
+              <Brain size={16} className={aiEnabled ? 'text-blue-600' : 'text-slate-400'} />
+              <span className="toggle-label">AI Analysis</span>
+              <button
+                data-testid="ai-toggle"
+                onClick={() => setAiEnabled(!aiEnabled)}
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  aiEnabled ? 'bg-blue-600' : 'bg-slate-300'
+                }`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                  aiEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
           </div>
         </header>
         
