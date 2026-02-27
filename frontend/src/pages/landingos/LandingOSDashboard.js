@@ -395,7 +395,7 @@ export default function LandingOSDashboard() {
     }
   };
   
-  // Step simulation
+  // Step simulation - optimized for performance
   const stepSimulation = useCallback(async () => {
     if (!simulationId) return;
     
@@ -405,7 +405,7 @@ export default function LandingOSDashboard() {
         : `${API_URL}/api/landingos/simulation/${simulationId}/step`;
       
       const res = await axios.post(endpoint, null, {
-        params: { steps: 5 }
+        params: { steps: 1 }  // Reduced from 5 to 1
       });
       
       const result = comparisonEnabled ? res.data.final_result?.evo : res.data.final_result;
@@ -414,19 +414,19 @@ export default function LandingOSDashboard() {
         setSimData(result);
         
         if (result.events) {
-          setEvents(result.events);
+          setEvents(result.events.slice(0, 50));  // Limit events for rendering
         }
         
         if (result.ground_truth) {
-          setGroundTruth(prev => [...prev.slice(-100), result.ground_truth]);
+          setGroundTruth(prev => [...prev.slice(-30), result.ground_truth]);  // Reduced history
         }
         
         if (result.estimated) {
-          setEstimated(prev => [...prev.slice(-100), result.estimated]);
+          setEstimated(prev => [...prev.slice(-30), result.estimated]);
         }
         
         if (result.metrics) {
-          setMetricsHistory(prev => [...prev.slice(-50), {
+          setMetricsHistory(prev => [...prev.slice(-20), {
             time: result.time,
             ...result.metrics
           }]);
@@ -445,10 +445,10 @@ export default function LandingOSDashboard() {
     }
   }, [simulationId, comparisonEnabled]);
   
-  // Run/pause simulation
+  // Run/pause simulation - with throttled updates
   useEffect(() => {
     if (isRunning && simulationId) {
-      intervalRef.current = setInterval(stepSimulation, 100);
+      intervalRef.current = setInterval(stepSimulation, 300);  // Increased from 100ms to 300ms
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
