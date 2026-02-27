@@ -1,0 +1,133 @@
+{
+  "project_name": "LandingOS - Event-Driven Planetary Navigation",
+  "design_philosophy": {
+    "theme_name": "Orbital Laboratory",
+    "core_concept": "Precision meets Exploration. A clean-room aesthetic that treats data as the protagonist. High-contrast scientific visualization against a sterile, trustworthy background.",
+    "emotional_tone": "Clinical, Precise, Reliable, Exploratory",
+    "mode": "light",
+    "visual_style": "Swiss Scientific",
+    "principles": [
+      "Data Density over Decoration: Every pixel must serve the mission.",
+      "Asymmetry for Tension: Use the 'Bento' grid to break monotony.",
+      "Tactile Controls: Buttons and toggles should feel physical (1px borders, subtle shadows).",
+      "Event-Driven Motion: UI elements react instantly, mimicking the neuromorphic sensors."
+    ]
+  },
+  "typography": {
+    "font_family_heading": "Chivo",
+    "font_family_body": "IBM Plex Sans",
+    "font_family_mono": "JetBrains Mono",
+    "scaling": {
+      "h1": "text-4xl font-bold tracking-tight text-slate-900",
+      "h2": "text-2xl font-semibold tracking-tight text-slate-800",
+      "h3": "text-xl font-medium text-slate-800",
+      "body": "text-sm leading-relaxed text-slate-600",
+      "caption": "text-xs font-mono text-slate-500 uppercase tracking-wider",
+      "data_value": "text-lg font-mono font-medium text-blue-700"
+    },
+    "import_statement": "@import url('https://fonts.googleapis.com/css2?family=Chivo:wght@300;400;700;900&family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');"
+  },
+  "colors": {
+    "palette": {
+      "background": "#F8F9FA",
+      "surface": "#FFFFFF",
+      "surface_highlight": "#F1F5F9",
+      "primary": "#0055FF",
+      "primary_foreground": "#FFFFFF",
+      "secondary": "#FF5F00",
+      "secondary_foreground": "#FFFFFF",
+      "text_main": "#0F172A",
+      "text_muted": "#64748B",
+      "border": "#E2E8F0",
+      "success": "#10B981",
+      "warning": "#F59E0b",
+      "error": "#EF4444",
+      "chart_1": "#0055FF",
+      "chart_2": "#FF5F00",
+      "chart_3": "#10B981",
+      "chart_4": "#6366F1",
+      "chart_5": "#8B5CF6"
+    },
+    "usage_rules": [
+      "Background must be #F8F9FA (Lab White), NOT pure white.",
+      "Cards/Containers must be #FFFFFF (Pure White) with a 1px border #E2E8F0.",
+      "Primary Blue (#0055FF) is for active states and primary data streams.",
+      "Signal Orange (#FF5F00) is for alerts, 'Record' buttons, and critical event spikes.",
+      "NEVER use gradients for backgrounds. Use flat, clean colors."
+    ]
+  },
+  "layout": {
+    "grid_system": "Bento Grid Mode B (High Density)",
+    "container_style": "rounded-sm border border-slate-200 bg-white shadow-sm",
+    "spacing": {
+      "page_padding": "p-6 md:p-8",
+      "card_padding": "p-4 md:p-6",
+      "gap": "gap-4"
+    },
+    "structure": {
+      "dashboard": "grid grid-cols-12 gap-4 auto-rows-[minmax(180px,auto)]",
+      "sidebar": "w-64 border-r border-slate-200 bg-white h-screen fixed left-0 top-0 z-40",
+      "main_content": "ml-64 min-h-screen bg-[#F8F9FA]"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#0055FF] text-white hover:bg-[#0044CC] rounded-md px-4 py-2 font-medium shadow-sm transition-all active:scale-95",
+      "secondary": "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-md px-4 py-2 font-medium transition-all",
+      "destructive": "bg-white text-red-600 border border-red-200 hover:bg-red-50 rounded-md px-4 py-2 font-medium"
+    },
+    "cards": {
+      "base": "bg-white border border-slate-200 rounded-lg shadow-[0_1px_3px_rgba(0,0,0,0.05)] overflow-hidden",
+      "header": "px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white"
+    },
+    "inputs": {
+      "base": "bg-white border border-slate-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+    },
+    "visualizations": {
+      "3d_viewport": "w-full h-full rounded-lg overflow-hidden bg-slate-950 relative",
+      "chart_container": "w-full h-[200px] mt-4"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": "shadow-sm for cards, shadow-md for dropdowns/modals. No large diffuse shadows.",
+    "borders": "1px solid #E2E8F0 everywhere. Precision is key.",
+    "glassmorphism": "Use sparingly. Only for floating toolbars over the 3D view: bg-white/80 backdrop-blur-md border border-white/20.",
+    "textures": "Subtle grid patterns (CSS radial-gradient) on the dashboard background to imply 'blueprint'."
+  },
+  "assets": {
+    "icons_library": "lucide-react",
+    "image_urls": {
+      "mars_surface": "https://images.unsplash.com/photo-1527826507412-72e447368aa1?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "moon_surface": "https://images.unsplash.com/photo-1748896631015-1016f8ed4c44?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "sand_texture": "https://images.unsplash.com/photo-1602255927776-7aa328d980e1?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "crater_texture": "https://images.unsplash.com/photo-1764414612150-2d98557e06b9?crop=entropy&cs=srgb&fm=jpg&q=85"
+    }
+  },
+  "3d_strategy": {
+    "library": "react-three-fiber",
+    "components": [
+      "Canvas: Set shadows and camera properly.",
+      "OrbitControls: For user interaction.",
+      "Points: For visualizing the Event Cloud (neuromorphic data). Use a custom shader or PointsMaterial with size attenuation.",
+      "Terrain: Use a PlaneGeometry with displacement map using the Mars/Moon textures.",
+      "Trajectory: Use Line from @react-three/drei."
+    ],
+    "instructions": "The 3D view is the hero. It must look scientific. Use a dark background (#0F172A) for the 3D canvas ONLY, to make the event points (which are usually bright) pop. The rest of the app remains light."
+  },
+  "instructions_to_main_agent": [
+    "1. CLEANUP: Remove all dark mode styles from index.css and App.css. Enforce the Light Mode palette defined above.",
+    "2. FONTS: Install Chivo, IBM Plex Sans, and JetBrains Mono via Google Fonts import in index.css.",
+    "3. LAYOUT: Implement the Sidebar + Main Content layout. The Sidebar should be fixed.",
+    "4. DASHBOARD: Use the Bento Grid (Mode B) for the main dashboard. High density, no wasted space.",
+    "5. 3D VIEW: Create a 'SimulationViewport' component using React Three Fiber. It should render a terrain (using the provided image URLs as textures) and a 'Lander' object.",
+    "6. CHARTS: Use Recharts for the 'Performance Metrics' (Latency, Drift). Style them to match the palette (Blue/Orange).",
+    "7. AI TOGGLE: Create a prominent toggle switch for 'AI Analysis' in the top bar. It should trigger a UI state change (e.g., highlighting anomalies).",
+    "8. DATA-TESTID: Add data-testid attributes to all interactive elements (buttons, inputs, toggles)."
+  ],
+  "universal_guidelines": [
+    "Avoid 'AI Slop': No generic centered layouts. Use the Bento grid.",
+    "Micro-interactions: Add hover states to everything. Buttons should lift slightly.",
+    "Accessibility: Ensure text contrast is high (Slate-900 on White).",
+    "Code Quality: Use functional components, hooks, and clean prop drilling or context."
+  ]
+}
