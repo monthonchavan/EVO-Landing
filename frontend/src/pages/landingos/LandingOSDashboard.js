@@ -846,8 +846,81 @@ export default function LandingOSDashboard() {
               )}
             </div>
           </div>
+          
+          {/* Imported Hardware Data Display */}
+          {importedDataset && (
+            <div className="bento-card col-span-12">
+              <div className="bento-card-header">
+                <span className="bento-card-title">Imported Hardware Data</span>
+                <button
+                  onClick={() => setImportedDataset(null)}
+                  className="btn-secondary text-sm"
+                >
+                  <X size={14} /> Clear
+                </button>
+              </div>
+              <div className="bento-card-content">
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-slate-50 rounded-lg">
+                    <div className="text-xs text-slate-500 uppercase">File</div>
+                    <div className="font-mono text-sm truncate">{importedDataset.name}</div>
+                  </div>
+                  <div className="text-center p-3 bg-slate-50 rounded-lg">
+                    <div className="text-xs text-slate-500 uppercase">Format</div>
+                    <div className="font-mono text-sm uppercase">{importedDataset.format}</div>
+                  </div>
+                  <div className="text-center p-3 bg-slate-50 rounded-lg">
+                    <div className="text-xs text-slate-500 uppercase">Total Events</div>
+                    <div className="font-mono text-sm text-blue-600">{importedDataset.total_events?.toLocaleString()}</div>
+                  </div>
+                  <div className="text-center p-3 bg-slate-50 rounded-lg">
+                    <div className="text-xs text-slate-500 uppercase">Duration</div>
+                    <div className="font-mono text-sm">{importedDataset.duration_ms?.toFixed(1)} ms</div>
+                  </div>
+                </div>
+                {importedDataset.sample_events && importedDataset.sample_events.length > 0 && (
+                  <div className="mt-4">
+                    <div className="text-xs text-slate-500 uppercase mb-2">Sample Events</div>
+                    <div className="bg-slate-900 rounded-lg p-3 overflow-x-auto">
+                      <table className="w-full text-xs font-mono text-slate-300">
+                        <thead>
+                          <tr className="text-slate-500">
+                            <th className="px-2 py-1 text-left">X</th>
+                            <th className="px-2 py-1 text-left">Y</th>
+                            <th className="px-2 py-1 text-left">Timestamp</th>
+                            <th className="px-2 py-1 text-left">Polarity</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importedDataset.sample_events.slice(0, 5).map((e, i) => (
+                            <tr key={i}>
+                              <td className="px-2 py-1">{e.x}</td>
+                              <td className="px-2 py-1">{e.y}</td>
+                              <td className="px-2 py-1">{e.timestamp}</td>
+                              <td className="px-2 py-1">
+                                <span className={e.polarity > 0 ? 'text-blue-400' : 'text-orange-400'}>
+                                  {e.polarity > 0 ? '+1' : '-1'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </main>
+      
+      {/* Import Modal */}
+      <ImportModal 
+        isOpen={showImportModal} 
+        onClose={() => setShowImportModal(false)}
+        onImport={(data) => setImportedDataset(data)}
+      />
     </div>
   );
 }
