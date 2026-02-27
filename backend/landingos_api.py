@@ -278,72 +278,126 @@ async def delete_experiment(exp_id: str):
     del experiments_db[exp_id]
     return {"status": "deleted", "experiment_id": exp_id}
 
-# ============== AI Analysis Endpoints ==============
+# ============== AI Analysis Endpoints (DISABLED - Local Mode) ==============
 
 @landingos_router.post("/ai/analyze")
 async def ai_analysis(request: AIAnalysisRequest):
-    """Perform AI-powered analysis on simulation/experiment results"""
-    
-    if request.analysis_type == "simulation":
-        # Analyze a specific simulation
-        if not request.simulation_id:
-            raise HTTPException(status_code=400, detail="simulation_id required for simulation analysis")
-        
-        if request.simulation_id not in active_simulations:
-            raise HTTPException(status_code=404, detail="Simulation not found")
-        
-        sim_data = active_simulations[request.simulation_id].get_full_state()
-        sim_data["metrics"] = active_simulations[request.simulation_id]._calculate_metrics()
-        
-        return await ai_analyzer.analyze_simulation(sim_data)
-    
-    elif request.analysis_type == "comparison":
-        # Compare multiple experiments
-        if not request.experiment_ids or len(request.experiment_ids) < 2:
-            raise HTTPException(status_code=400, detail="At least 2 experiment_ids required for comparison")
-        
-        experiments = []
-        for exp_id in request.experiment_ids:
-            if exp_id in experiments_db:
-                exp = experiments_db[exp_id]
-                if exp.get("results"):
-                    experiments.append({
-                        "config": exp["config"],
-                        "metrics": exp["results"].get("final_metrics", {})
-                    })
-        
-        return await ai_analyzer.compare_experiments(experiments)
-    
-    elif request.analysis_type == "suggestion":
-        # Suggest parameters for target accuracy
-        if request.target_accuracy is None:
-            raise HTTPException(status_code=400, detail="target_accuracy required for suggestion analysis")
-        
-        # Get current config from most recent experiment or use defaults
-        current_config = {}
-        if experiments_db:
-            latest_exp = max(experiments_db.values(), key=lambda x: x["created_at"])
-            current_config = latest_exp["config"]
-        else:
-            current_config = {
-                "terrain_type": "lunar",
-                "descent_velocity": 50,
-                "vibration_amplitude": 0.5,
-                "noise_level": 0.1
-            }
-        
-        return await ai_analyzer.suggest_parameters(current_config, request.target_accuracy)
-    
-    else:
-        raise HTTPException(status_code=400, detail="Invalid analysis_type")
+    """AI analysis disabled in local mode"""
+    return {
+        "analysis": "AI analysis is disabled in local mode. Use batch experiments for comparisons.",
+        "enabled": False
+    }
 
 @landingos_router.get("/ai/status")
 async def ai_status():
     """Check if AI analysis is available"""
     return {
-        "enabled": ai_analyzer.enabled,
-        "message": "AI analysis is ready" if ai_analyzer.enabled else "AI analysis disabled - set EMERGENT_LLM_KEY"
+        "enabled": False,
+        "message": "AI analysis disabled in local mode"
     }
+
+# ============== Batch Experiments Endpoints ==============
+
+@landingos_router.get("/experiments/presets")
+async def get_experiment_presets():
+    """Get available experiment presets"""
+    presets = {}
+    for name, config in PRESET_EXPERIMENTS.items():
+        if isinstance(config, list):
+            presets[name] = [{"name": c.name, "config": c.__dict__} for c in config]
+        else:
+            presets[name] = {"name": config.name, "config": config.__dict__}
+    return presets
+
+@landingos_router.post("/experiments/run")
+async def run_batch_experiments(experiments: List[Dict]):
+    """Run batch experiments"""
+    from batch_experiments import ExperimentConfig as BatchExpConfig
+    
+    configs = []
+    for exp in experiments:
+        configs.append(BatchExpConfig(**exp))
+    
+    results = batch_manager.run_batch(configs)
+    
+    return {
+        "experiments_completed": len(results),
+        "results": [
+            {
+                "id": r.id,
+                "name": r.name,
+                "final_position_error": r.final_position_error,
+                "final_attitude_error": r.final_attitude_error,
+                "average_position_error": r.average_position_error,
+                "duration": r.duration
+            }
+            for r in results
+        ]
+    }
+
+@landingos_router.post("/experiments/run-preset/{preset_name}")
+async def run_preset_experiment(preset_name: str):
+    """Run a preset experiment"""
+    if preset_name not in PRESET_EXPERIMENTS:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    
+    preset = PRESET_EXPERIMENTS[preset_name]
+    
+    if isinstance(preset, list):
+        results = batch_manager.run_batch(preset)
+    else:
+        exp_id = batch_manager.create_experiment(preset)
+        result = batch_manager.run_experiment(exp_id)
+        results = [result]
+    
+    return {
+        "preset": preset_name,
+        "experiments_completed": len(results),
+        "results": [
+            {
+                "id": r.id,
+                "name": r.name,
+                "final_position_error": r.final_position_error,
+                "final_attitude_error": r.final_attitude_error,
+                "average_position_error": r.average_position_error,
+                "duration": r.duration
+            }
+            for r in results
+        ]
+    }
+
+@landingos_router.get("/experiments/list")
+async def list_batch_experiments():
+    """List all batch experiments"""
+    return batch_manager.list_experiments()
+
+@landingos_router.get("/experiments/{exp_id}")
+async def get_batch_experiment(exp_id: str):
+    """Get batch experiment details"""
+    result = batch_manager.get_experiment_result(exp_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    
+    return {
+        "id": result.id,
+        "name": result.name,
+        "config": result.config.__dict__,
+        "summary": {
+            "final_position_error": result.final_position_error,
+            "final_attitude_error": result.final_attitude_error,
+            "average_position_error": result.average_position_error,
+            "max_position_error": result.max_position_error,
+            "average_drift_rate": result.average_drift_rate,
+            "total_events": result.total_events,
+            "duration": result.duration
+        },
+        "metrics_history": result.metrics_history
+    }
+
+@landingos_router.post("/experiments/compare")
+async def compare_batch_experiments(exp_ids: List[str]):
+    """Compare multiple batch experiments"""
+    return batch_manager.compare_experiments(exp_ids)
 
 # ============== Terrain Data Endpoints ==============
 
