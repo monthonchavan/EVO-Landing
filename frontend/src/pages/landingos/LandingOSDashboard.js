@@ -551,6 +551,15 @@ export default function LandingOSDashboard() {
             <span>Technical Report (PDF)</span>
           </a>
           <a 
+            href="/PhD_Thesis_Event_Driven_Navigation.pdf" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="nav-item"
+          >
+            <FileText size={18} />
+            <span>PhD Thesis (PDF)</span>
+          </a>
+          <a 
             href="/docs/README.md" 
             target="_blank" 
             rel="noopener noreferrer"
