@@ -435,8 +435,9 @@ class EVOSimulator:
             "id": self.state.id,
             "time": self.state.current_time,
             "is_running": self.state.is_running,
+            "is_landed": self.state.is_landed,
             "events_generated": self.state.events_generated,
-            "altitude": self.state.current_pose.z,
+            "altitude": max(0, self.state.current_pose.z),
             "config": {
                 "terrain_type": self.config.terrain_type.value,
                 "initial_altitude": self.config.initial_altitude,
@@ -450,8 +451,10 @@ class EVOSimulator:
         """Get complete simulation state for persistence"""
         return {
             **self._get_state_dict(),
-            "ground_truth_poses": self.state.ground_truth_poses[-100:],  # Last 100
-            "estimated_poses": self.state.estimated_poses[-100:]
+            "ground_truth_poses": self.state.ground_truth_poses,
+            "estimated_poses": self.state.estimated_poses,
+            "events_history": self.state.events_history,
+            "metrics_history": self.state.metrics_history
         }
     
     def reset(self):
