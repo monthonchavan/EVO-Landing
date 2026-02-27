@@ -55,46 +55,21 @@ function Lander({ pose }) {
 
 // Event cloud visualization
 function EventCloud({ events }) {
-  const pointsRef = useRef();
-  
-  const [positions, colors] = React.useMemo(() => {
-    if (!events || events.length === 0) {
-      return [new Float32Array(0), new Float32Array(0)];
-    }
-    
-    const pos = new Float32Array(events.length * 3);
-    const col = new Float32Array(events.length * 3);
-    
-    events.forEach((event, i) => {
-      pos[i * 3] = (event.x - 320) * 0.05;
-      pos[i * 3 + 1] = 20 + Math.random() * 10;
-      pos[i * 3 + 2] = (event.y - 240) * 0.05;
-      
-      // Color based on polarity
-      if (event.polarity > 0) {
-        col[i * 3] = 0;
-        col[i * 3 + 1] = 0.33;
-        col[i * 3 + 2] = 1;
-      } else {
-        col[i * 3] = 1;
-        col[i * 3 + 1] = 0.37;
-        col[i * 3 + 2] = 0;
-      }
-    });
-    
-    return [pos, col];
-  }, [events]);
-  
-  if (positions.length === 0) return null;
+  if (!events || events.length === 0) return null;
   
   return (
-    <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={positions.length / 3} array={positions} itemSize={3} />
-        <bufferAttribute attach="attributes-color" count={colors.length / 3} array={colors} itemSize={3} />
-      </bufferGeometry>
-      <pointsMaterial size={0.3} vertexColors sizeAttenuation />
-    </points>
+    <group>
+      {events.slice(0, 200).map((event, i) => (
+        <mesh key={i} position={[
+          (event.x - 320) * 0.05,
+          20 + (i % 10),
+          (event.y - 240) * 0.05
+        ]}>
+          <sphereGeometry args={[0.15, 4, 4]} />
+          <meshBasicMaterial color={event.polarity > 0 ? '#0055FF' : '#FF5F00'} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
