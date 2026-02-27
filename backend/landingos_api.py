@@ -93,7 +93,8 @@ async def create_simulation(config: SimulationConfigRequest):
         vibration_amplitude=config.vibration_amplitude,
         vibration_frequency=config.vibration_frequency,
         noise_level=config.noise_level,
-        feature_density=config.feature_density
+        feature_density=config.feature_density,
+        use_snn_processing=config.use_snn_processing
     )
     
     simulator = EVOSimulator(sim_config)
