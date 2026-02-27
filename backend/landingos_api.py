@@ -421,6 +421,125 @@ async def run_preset_experiment(preset_name: str, background_tasks: BackgroundTa
         "poll_url": f"/api/landingos/experiments/task/{task_id}"
     }
 
+@landingos_router.get("/experiments/task/{task_id}")
+async def get_batch_task_status(task_id: str):
+    """Get status of a batch experiment task"""
+    if task_id not in batch_tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    task = batch_tasks[task_id]
+    response = {
+        "task_id": task_id,
+        "status": task["status"],
+        "created_at": task["created_at"],
+        "experiment_count": task.get("experiment_count", 0)
+    }
+    
+    if task["status"] == TaskStatus.RUNNING:
+        response["started_at"] = task.get("started_at")
+    
+    if task["status"] == TaskStatus.COMPLETED:
+        response["completed_at"] = task.get("completed_at")
+        response["experiments_completed"] = len(task.get("results", []))
+        response["experiment_ids"] = task.get("experiment_ids", [])
+        response["results_url"] = f"/api/landingos/experiments/task/{task_id}/results"
+    
+    if task["status"] == TaskStatus.FAILED:
+        response["error"] = task.get("error")
+        response["completed_at"] = task.get("completed_at")
+    
+    return response
+
+@landingos_router.get("/experiments/task/{task_id}/results")
+async def get_batch_task_results(task_id: str):
+    """Get results of a completed batch experiment task"""
+    if task_id not in batch_tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    task = batch_tasks[task_id]
+    
+    if task["status"] != TaskStatus.COMPLETED:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Task not completed yet. Current status: {task['status']}"
+        )
+    
+    return {
+        "task_id": task_id,
+        "status": task["status"],
+        "experiments_completed": len(task.get("results", [])),
+        "results": task.get("results", []),
+        "experiment_ids": task.get("experiment_ids", [])
+    }
+
+@landingos_router.get("/experiments/comparison/{task_id}")
+async def get_comparison_task_status(task_id: str):
+    """Get status of a comparison task"""
+    if task_id not in comparison_tasks:
+        raise HTTPException(status_code=404, detail="Comparison task not found")
+    
+    task = comparison_tasks[task_id]
+    response = {
+        "task_id": task_id,
+        "status": task["status"],
+        "created_at": task["created_at"],
+        "experiment_count": task.get("experiment_count", 0)
+    }
+    
+    if task["status"] == TaskStatus.RUNNING:
+        response["started_at"] = task.get("started_at")
+    
+    if task["status"] == TaskStatus.COMPLETED:
+        response["completed_at"] = task.get("completed_at")
+        response["results_url"] = f"/api/landingos/experiments/comparison/{task_id}/results"
+    
+    if task["status"] == TaskStatus.FAILED:
+        response["error"] = task.get("error")
+        response["completed_at"] = task.get("completed_at")
+    
+    return response
+
+@landingos_router.get("/experiments/comparison/{task_id}/results")
+async def get_comparison_task_results(task_id: str):
+    """Get results of a completed comparison task"""
+    if task_id not in comparison_tasks:
+        raise HTTPException(status_code=404, detail="Comparison task not found")
+    
+    task = comparison_tasks[task_id]
+    
+    if task["status"] != TaskStatus.COMPLETED:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Comparison not completed yet. Current status: {task['status']}"
+        )
+    
+    return task.get("results", {})
+
+@landingos_router.get("/experiments/tasks")
+async def list_batch_tasks():
+    """List all batch experiment tasks"""
+    return {
+        "batch_tasks": [
+            {
+                "task_id": task_id,
+                "status": task["status"],
+                "created_at": task["created_at"],
+                "experiment_count": task.get("experiment_count", 0),
+                "experiment_names": task.get("experiment_names", [])
+            }
+            for task_id, task in batch_tasks.items()
+        ],
+        "comparison_tasks": [
+            {
+                "task_id": task_id,
+                "status": task["status"],
+                "created_at": task["created_at"],
+                "experiment_count": task.get("experiment_count", 0)
+            }
+            for task_id, task in comparison_tasks.items()
+        ]
+    }
+
 @landingos_router.get("/experiments/list")
 async def list_batch_experiments():
     """List all batch experiments"""
