@@ -121,17 +121,15 @@ function EventCloud({ events }) {
 function TrajectoryLine({ poses, color = '#0055FF' }) {
   const lineRef = useRef();
   
-  const points = React.useMemo(() => {
-    if (!poses || poses.length < 2) return null;
-    return poses.map(p => new THREE.Vector3(p.x * 0.1, p.z * 0.1, p.y * 0.1));
+  const geometry = React.useMemo(() => {
+    if (!poses || poses.length < 2) {
+      return null;
+    }
+    const points = poses.map(p => new THREE.Vector3(p.x * 0.1, p.z * 0.1, p.y * 0.1));
+    return new THREE.BufferGeometry().setFromPoints(points);
   }, [poses]);
   
-  if (!points) return null;
-  
-  const geometry = React.useMemo(() => {
-    const geo = new THREE.BufferGeometry().setFromPoints(points);
-    return geo;
-  }, [points]);
+  if (!geometry) return null;
   
   return (
     <line ref={lineRef}>
