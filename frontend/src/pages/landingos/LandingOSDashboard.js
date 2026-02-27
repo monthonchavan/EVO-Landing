@@ -388,8 +388,8 @@ export default function LandingOSDashboard() {
                 <TerrainMesh terrainType={config.terrain_type} />
                 <Lander pose={simData?.ground_truth || { z: altitude }} />
                 <EventCloud events={events} />
-                <TrajectoryLine poses={groundTruth} color="#0055FF" />
-                <TrajectoryLine poses={estimated} color="#FF5F00" />
+                <TrajectoryPath poses={groundTruth} color="#0055FF" />
+                <TrajectoryPath poses={estimated} color="#FF5F00" />
                 
                 <OrbitControls enablePan enableZoom enableRotate />
                 <gridHelper args={[200, 40, '#334155', '#1E293B']} position={[0, -50, 0]} />
