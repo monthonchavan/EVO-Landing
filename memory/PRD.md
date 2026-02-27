@@ -7,150 +7,134 @@ Build an integrated platform for "Event-Driven Visual Navigation for Precision P
 - Light scientific/academic theme
 - AI integration with toggle to enable/disable
 - Focus on both simulation/visualization AND EVO accuracy
-- Synthetic data generation pipeline
-- Event-Based Visual Odometry algorithm implementation
-- Research documentation and experiment management
-- **Hardware data import from physical event cameras**
-- **Comprehensive project documentation**
+- Hardware data import from physical event cameras
+- Frame-Based VO comparison feature
+- Data export (non-blank files)
+- No auto-reset on simulation end
+- Comprehensive technical documentation
+- Remove branding elements
 
 ## Architecture
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        LandingOS Platform                        │
-├─────────────────────────────────────────────────────────────────┤
-│  Frontend (React)          │  Backend (FastAPI)                 │
-│  - Bento Grid Dashboard    │  - EVO Simulation Engine           │
-│  - Event Canvas (2D)       │  - AI Analysis (GPT-4o)            │
-│  - Performance Charts      │  - Hardware Import Parser          │
-│  - Import/Export UI        │  - Data Export Module              │
-│  - AI Toggle Control       │  - WebSocket Real-time             │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         LandingOS Platform                           │
+├─────────────────────────────────────────────────────────────────────┤
+│   Frontend (React)          │  Backend (FastAPI)                    │
+│   - Bento Grid Dashboard    │  - EVO Simulation Engine              │
+│   - Event Canvas (2D)       │  - Frame-Based VO Comparison          │
+│   - Performance Charts      │  - AI Analysis (GPT-4o)               │
+│   - VO Comparison Panel     │  - Hardware Import Parser             │
+│   - Import/Export UI        │  - Data Export Module                 │
+│   - AI Toggle + FVO Toggle  │  - WebSocket Real-time                │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## What's Been Implemented (Jan 2026)
 
 ### Core Features ✅
-- [x] EVO Simulation Engine with terrain generation (Lunar/Mars)
-- [x] Event camera simulator (neuromorphic events)
-- [x] Visual odometry algorithm (feature detection, pose estimation)
-- [x] Performance metrics (Position Error, Attitude Error, Drift Rate, Latency)
-- [x] Real-time visualization with charts
+- [x] EVO Simulation Engine (terrain, events, pose estimation)
+- [x] Simulation data persistence (no auto-reset)
+- [x] Event history storage (1M+ events)
+- [x] Metrics history storage
 
-### AI Analysis ✅
-- [x] GPT-4o powered experiment analysis
-- [x] Toggle switch to enable/disable AI
-- [x] Performance assessment and optimization suggestions
-- [x] Experiment comparison capabilities
+### Frame-Based VO Comparison ✅ (NEW)
+- [x] Traditional 30 FPS frame-based visual odometry
+- [x] Motion blur simulation
+- [x] Feature extraction simulation
+- [x] Side-by-side comparison metrics
+- [x] Winner determination (EVO vs FVO)
+- [x] Improvement percentage calculation
+- [x] Recommendation engine
 
-### Hardware Integration ✅ (NEW)
-- [x] CSV import (x, y, timestamp, polarity)
-- [x] JSON import (event arrays)
-- [x] NumPy (.npy) import
-- [x] AEDAT 4.0 format (Prophesee/iniVation)
-- [x] Prophesee RAW format
-- [x] Text file import (space/tab separated)
-- [x] Drag & drop upload interface
+### Data Export ✅ (FIXED)
+- [x] Events export with actual data (CSV/JSON)
+- [x] Trajectory export (ground truth + estimated)
+- [x] Full experiment export
+- [x] Proper metadata inclusion
+
+### Hardware Import ✅
+- [x] CSV, JSON, NumPy, AEDAT 4.0, RAW formats
+- [x] Drag & drop interface
 - [x] Dataset management
 
-### Data Export ✅ (NEW)
-- [x] Events export (CSV/JSON)
-- [x] Trajectory export (CSV/JSON)
-- [x] Experiment data export
-- [x] Download functionality
-
-### Real-time Features ✅ (NEW)
-- [x] WebSocket endpoint for streaming updates
-- [x] Real-time chart updates
-- [x] Live pose estimation comparison
-
 ### Documentation ✅ (NEW)
-- [x] Comprehensive README at /app/docs/README.md
-- [x] API reference with examples
-- [x] Hardware integration guide
-- [x] Algorithm documentation
-- [x] Configuration guide
-- [x] Troubleshooting section
+- [x] /app/docs/README.md - User documentation
+- [x] /app/docs/TECHNICAL_REPORT.md - Implementation details
+- [x] Algorithm explanations
+- [x] API reference
+
+### UI/UX ✅
+- [x] Removed "Made with Emergent" logo
+- [x] Compare FVO toggle in top bar
+- [x] AI Analysis toggle
+- [x] VO Comparison panel with results
 
 ## API Endpoints
 
 ### Simulation
-- `POST /api/landingos/simulation/create` - Create simulation
-- `POST /api/landingos/simulation/{id}/step` - Advance simulation
-- `GET /api/landingos/simulation/{id}/state` - Get state
-- `POST /api/landingos/simulation/{id}/reset` - Reset
-- `DELETE /api/landingos/simulation/{id}` - Delete
+- `POST /api/landingos/simulation/create`
+- `POST /api/landingos/simulation/{id}/step`
+- `GET /api/landingos/simulation/{id}/state`
+- `POST /api/landingos/simulation/{id}/reset`
 
-### Hardware Import
-- `GET /api/landingos/import/formats` - List supported formats
-- `POST /api/landingos/import/upload` - Upload hardware data
-- `GET /api/landingos/import/datasets` - List datasets
-- `GET /api/landingos/import/dataset/{id}` - Get dataset events
-- `DELETE /api/landingos/import/dataset/{id}` - Delete dataset
+### VO Comparison
+- `POST /api/landingos/simulation/{id}/enable-comparison`
+- `POST /api/landingos/simulation/{id}/step-comparison`
+- `GET /api/landingos/simulation/{id}/comparison`
+- `POST /api/landingos/simulation/{id}/reset-comparison`
+- `DELETE /api/landingos/simulation/{id}/disable-comparison`
 
 ### Data Export
-- `GET /api/landingos/export/simulation/{id}/events` - Export events
-- `GET /api/landingos/export/simulation/{id}/trajectory` - Export trajectory
-- `GET /api/landingos/export/experiment/{id}` - Export experiment
+- `GET /api/landingos/export/simulation/{id}/events`
+- `GET /api/landingos/export/simulation/{id}/trajectory`
+- `GET /api/landingos/export/experiment/{id}`
 
-### AI Analysis
-- `POST /api/landingos/ai/analyze` - Run AI analysis
-- `GET /api/landingos/ai/status` - Check AI availability
+### Hardware Import
+- `GET /api/landingos/import/formats`
+- `POST /api/landingos/import/upload`
+- `GET /api/landingos/import/datasets`
 
-### WebSocket
-- `WS /api/landingos/ws/simulation/{id}` - Real-time updates
-
-## Test Results (Iteration 4)
+## Test Results (Iteration 5)
 - **Backend**: 100% (12/12 tests passed)
-- **Frontend**: 95% (19/20 tests passed - 1 minor UI issue)
-- **Overall**: All core features working
-
-## Supported Hardware Formats
-
-| Format | Extension | Manufacturer |
-|--------|-----------|--------------|
-| CSV | .csv | Universal |
-| JSON | .json | Custom |
-| NumPy | .npy | Python |
-| AEDAT 4.0 | .aedat4, .aedat | Prophesee, iniVation |
-| RAW | .raw | Prophesee EVK |
-| Text | .txt | Legacy |
+- **Frontend**: 100% (All UI functional)
+- **Integration**: 100% (Comparison feature working)
 
 ## File Structure
 ```
 /app/
 ├── backend/
-│   ├── server.py           # Main FastAPI app
-│   ├── landingos_api.py    # LandingOS routes
-│   ├── evo_engine.py       # Simulation engine
+│   ├── server.py
+│   ├── landingos_api.py    # Main API routes
+│   ├── evo_engine.py       # EVO simulation
+│   ├── frame_vo.py         # FVO comparison (NEW)
 │   ├── ai_analysis.py      # GPT-4o integration
 │   └── hardware_import.py  # Data import/export
 ├── frontend/src/
 │   ├── pages/landingos/
 │   │   └── LandingOSDashboard.js
-│   ├── App.js
-│   └── index.css
+│   └── ...
 ├── docs/
-│   └── README.md           # Full documentation
+│   ├── README.md           # User documentation
+│   └── TECHNICAL_REPORT.md # Technical report (NEW)
 └── memory/
-    └── PRD.md              # This file
+    └── PRD.md
 ```
 
 ## Next Steps / Backlog
 
 ### P1 (High Priority)
-- [ ] 3D visualization with Three.js/React Three Fiber
-- [ ] Multiple camera support in simulation
-- [ ] Experiment batch comparison
-- [ ] Report generation (PDF export)
+- [ ] 3D visualization with Three.js
+- [ ] PDF export of technical report
+- [ ] Batch experiment comparison
+- [ ] WebSocket for smoother updates
 
 ### P2 (Medium Priority)
-- [ ] Hardware-in-the-Loop (HIL) simulation
-- [ ] Spiking Neural Network (SNN) feature detection
-- [ ] Custom terrain generation tool
-- [ ] Real hardware integration testing
+- [ ] Multiple camera support
+- [ ] Custom terrain generation
+- [ ] Spiking Neural Network features
+- [ ] Hardware-in-the-Loop testing
 
-### Future Enhancements
-- [ ] VR/AR visualization mode
-- [ ] Team collaboration features
-- [ ] Auto-generated research papers
-- [ ] Cloud deployment for distributed testing
+### Future
+- [ ] VR/AR visualization
+- [ ] Team collaboration
+- [ ] Research paper generation
