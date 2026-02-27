@@ -1,25 +1,30 @@
-import React, { useRef, useMemo, useEffect } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Grid, Line, Text, PerspectiveCamera } from '@react-three/drei';
+import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
 
 // Terrain mesh component
-function TerrainMesh({ heightmapData, features }) {
+function TerrainMesh({ heightmapData }) {
   const meshRef = useRef();
   
   const geometry = useMemo(() => {
     if (!heightmapData || !heightmapData.data) return null;
     
     const { data, width, height, scale } = heightmapData;
-    const geo = new THREE.PlaneGeometry(scale, scale, width - 1, height - 1);
+    const geo = new THREE.PlaneGeometry(scale, scale, Math.min(width - 1, 127), Math.min(height - 1, 127));
     
-    // Apply heightmap to vertices
     const positions = geo.attributes.position.array;
-    for (let i = 0; i < positions.length / 3; i++) {
-      const x = Math.floor((i % width));
-      const y = Math.floor(i / width);
-      if (y < data.length && x < data[0].length) {
-        positions[i * 3 + 2] = data[y][x] * 50; // Scale height for visibility
+    const stepX = width / 128;
+    const stepY = height / 128;
+    
+    for (let i = 0; i <= 127; i++) {
+      for (let j = 0; j <= 127; j++) {
+        const idx = i * 128 + j;
+        const dataX = Math.min(Math.floor(j * stepX), width - 1);
+        const dataY = Math.min(Math.floor(i * stepY), height - 1);
+        if (dataY < data.length && dataX < data[0]?.length) {
+          positions[idx * 3 + 2] = (data[dataY][dataX] || 0) * 50;
+        }
       }
     }
     geo.computeVertexNormals();
@@ -34,7 +39,6 @@ function TerrainMesh({ heightmapData, features }) {
       <primitive object={geometry} />
       <meshStandardMaterial 
         color="#8B7355" 
-        wireframe={false}
         roughness={0.9}
         metalness={0.1}
         side={THREE.DoubleSide}
@@ -49,12 +53,12 @@ function FeatureMarkers({ features }) {
   
   return (
     <group>
-      {features.slice(0, 50).map((feature, idx) => (
+      {features.slice(0, 30).map((feature, idx) => (
         <mesh
           key={idx}
           position={[feature.x / 2, (feature.z || 0) * 50 + 5, feature.y / 2]}
         >
-          <sphereGeometry args={[feature.size / 5, 8, 8]} />
+          <sphereGeometry args={[Math.max(2, feature.size / 5), 8, 8]} />
           <meshStandardMaterial 
             color={feature.type === 'crater' ? '#4A4A4A' : '#8B4513'} 
             transparent
@@ -66,35 +70,36 @@ function FeatureMarkers({ features }) {
   );
 }
 
-// Trajectory line
-function TrajectoryLine({ poses, color = '#00FF00', lineWidth = 2 }) {
-  const points = useMemo(() => {
-    if (!poses || poses.length < 2) return [];
-    return poses.map(p => new THREE.Vector3(p.x / 2, p.z / 2, p.y / 2));
-  }, [poses]);
+// Simple trajectory visualization using spheres
+function TrajectoryPath({ poses, color = '#00FF00' }) {
+  if (!poses || poses.length < 2) return null;
   
-  if (points.length < 2) return null;
+  // Only show every Nth point to avoid clutter
+  const filteredPoses = poses.filter((_, i) => i % 5 === 0 || i === poses.length - 1);
   
   return (
-    <Line
-      points={points}
-      color={color}
-      lineWidth={lineWidth}
-    />
+    <group>
+      {filteredPoses.map((p, idx) => (
+        <mesh key={idx} position={[p.x / 2, p.z / 2, p.y / 2]}>
+          <sphereGeometry args={[3, 6, 6]} />
+          <meshBasicMaterial color={color} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
 // Lander model
-function Lander({ pose, showAxes = true }) {
+function Lander({ pose }) {
   const meshRef = useRef();
   
   useFrame(() => {
     if (meshRef.current && pose) {
       meshRef.current.position.set(pose.x / 2, pose.z / 2, pose.y / 2);
       meshRef.current.rotation.set(
-        pose.pitch * Math.PI / 180,
-        pose.yaw * Math.PI / 180,
-        pose.roll * Math.PI / 180
+        (pose.pitch || 0) * Math.PI / 180,
+        (pose.yaw || 0) * Math.PI / 180,
+        (pose.roll || 0) * Math.PI / 180
       );
     }
   });
@@ -134,84 +139,7 @@ function Lander({ pose, showAxes = true }) {
       )}
       
       {/* Coordinate axes */}
-      {showAxes && (
-        <axesHelper args={[30]} />
-      )}
-    </group>
-  );
-}
-
-// Event visualization as particles
-function EventParticles({ events }) {
-  const pointsRef = useRef();
-  
-  const { positions, colors } = useMemo(() => {
-    if (!events || !events.length) {
-      return { positions: new Float32Array(0), colors: new Float32Array(0) };
-    }
-    
-    const pos = new Float32Array(events.length * 3);
-    const col = new Float32Array(events.length * 3);
-    
-    events.forEach((event, i) => {
-      // Map 2D event coordinates to 3D space around lander
-      pos[i * 3] = (event.x - 320) / 10;
-      pos[i * 3 + 1] = 100 + Math.random() * 50;
-      pos[i * 3 + 2] = (event.y - 240) / 10;
-      
-      // Color based on polarity
-      if (event.polarity > 0) {
-        col[i * 3] = 0;      // R
-        col[i * 3 + 1] = 0.3;  // G
-        col[i * 3 + 2] = 1;   // B
-      } else {
-        col[i * 3] = 1;     // R
-        col[i * 3 + 1] = 0.4; // G
-        col[i * 3 + 2] = 0;   // B
-      }
-    });
-    
-    return { positions: pos, colors: col };
-  }, [events]);
-  
-  if (positions.length === 0) return null;
-  
-  return (
-    <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={positions.length / 3}
-          array={positions}
-          itemSize={3}
-        />
-        <bufferAttribute
-          attach="attributes-color"
-          count={colors.length / 3}
-          array={colors}
-          itemSize={3}
-        />
-      </bufferGeometry>
-      <pointsMaterial size={2} vertexColors />
-    </points>
-  );
-}
-
-// Corner detection visualization
-function CornerMarkers({ corners }) {
-  if (!corners || !corners.length) return null;
-  
-  return (
-    <group>
-      {corners.map((corner, idx) => (
-        <mesh
-          key={idx}
-          position={[(corner.x - 320) / 5, 150, (corner.y - 240) / 5]}
-        >
-          <octahedronGeometry args={[3]} />
-          <meshBasicMaterial color="#FFFF00" wireframe />
-        </mesh>
-      ))}
+      <axesHelper args={[30]} />
     </group>
   );
 }
@@ -232,108 +160,6 @@ function CameraController({ pose, followMode }) {
   });
   
   return null;
-}
-
-// HUD overlay
-function HUD({ altitude, speed, status }) {
-  return (
-    <group position={[0, 600, 0]}>
-      <Text
-        position={[-200, 0, 0]}
-        fontSize={20}
-        color="white"
-        anchorX="left"
-      >
-        {`ALT: ${altitude?.toFixed(1) || 0}m`}
-      </Text>
-      <Text
-        position={[0, 0, 0]}
-        fontSize={20}
-        color="white"
-        anchorX="center"
-      >
-        {status || 'READY'}
-      </Text>
-    </group>
-  );
-}
-
-// Main 3D Scene component
-export default function Scene3D({ 
-  terrainData, 
-  currentPose, 
-  groundTruthTrajectory,
-  estimatedTrajectory,
-  events,
-  corners,
-  isRunning,
-  followCamera = false 
-}) {
-  return (
-    <Canvas shadows camera={{ position: [0, 600, 800], fov: 60 }}>
-      {/* Lighting */}
-      <ambientLight intensity={0.4} />
-      <directionalLight
-        position={[200, 500, 300]}
-        intensity={1}
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-      />
-      <pointLight position={[-200, 300, -200]} intensity={0.3} />
-      
-      {/* Sky */}
-      <color attach="background" args={['#0a0a1a']} />
-      <fog attach="fog" args={['#0a0a1a', 500, 2000]} />
-      
-      {/* Stars */}
-      <Stars />
-      
-      {/* Grid */}
-      <Grid
-        args={[2000, 2000]}
-        cellSize={50}
-        cellColor="#1a1a2e"
-        sectionSize={200}
-        sectionColor="#2a2a4e"
-        fadeDistance={1500}
-        infiniteGrid
-      />
-      
-      {/* Terrain */}
-      {terrainData && (
-        <>
-          <TerrainMesh 
-            heightmapData={terrainData.heightmap} 
-            features={terrainData.features}
-          />
-          <FeatureMarkers features={terrainData.features} />
-        </>
-      )}
-      
-      {/* Trajectories */}
-      <TrajectoryLine poses={groundTruthTrajectory} color="#00FF00" lineWidth={3} />
-      <TrajectoryLine poses={estimatedTrajectory} color="#FF6600" lineWidth={2} />
-      
-      {/* Lander */}
-      <Lander pose={currentPose} />
-      
-      {/* Events visualization */}
-      <EventParticles events={events} />
-      
-      {/* Corner detections */}
-      <CornerMarkers corners={corners} />
-      
-      {/* Camera control */}
-      <CameraController pose={currentPose} followMode={followCamera} />
-      <OrbitControls 
-        enableDamping 
-        dampingFactor={0.05}
-        maxDistance={2000}
-        minDistance={50}
-      />
-    </Canvas>
-  );
 }
 
 // Stars background
@@ -362,5 +188,70 @@ function Stars() {
       </bufferGeometry>
       <pointsMaterial size={2} color="#FFFFFF" sizeAttenuation={false} />
     </points>
+  );
+}
+
+// Main 3D Scene component
+export default function Scene3D({ 
+  terrainData, 
+  currentPose, 
+  groundTruthTrajectory,
+  estimatedTrajectory,
+  isRunning,
+  followCamera = false 
+}) {
+  return (
+    <Canvas shadows camera={{ position: [0, 600, 800], fov: 60 }}>
+      {/* Lighting */}
+      <ambientLight intensity={0.4} />
+      <directionalLight
+        position={[200, 500, 300]}
+        intensity={1}
+        castShadow
+      />
+      <pointLight position={[-200, 300, -200]} intensity={0.3} />
+      
+      {/* Sky */}
+      <color attach="background" args={['#0a0a1a']} />
+      <fog attach="fog" args={['#0a0a1a', 500, 2000]} />
+      
+      {/* Stars */}
+      <Stars />
+      
+      {/* Grid */}
+      <Grid
+        args={[2000, 2000]}
+        cellSize={50}
+        cellColor="#1a1a2e"
+        sectionSize={200}
+        sectionColor="#2a2a4e"
+        fadeDistance={1500}
+        infiniteGrid
+      />
+      
+      {/* Terrain */}
+      {terrainData && (
+        <>
+          <TerrainMesh heightmapData={terrainData.heightmap} />
+          <FeatureMarkers features={terrainData.features} />
+        </>
+      )}
+      
+      {/* Trajectories */}
+      <TrajectoryPath poses={groundTruthTrajectory} color="#00FF00" />
+      <TrajectoryPath poses={estimatedTrajectory} color="#FF6600" />
+      
+      {/* Lander */}
+      <Lander pose={currentPose} />
+      
+      {/* Camera control */}
+      <CameraController pose={currentPose} followMode={followCamera} />
+      <OrbitControls 
+        enableDamping 
+        dampingFactor={0.05}
+        maxDistance={2000}
+        minDistance={50}
+      />
+    </Canvas>
   );
 }
