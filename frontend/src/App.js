@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-route
 import LoginPage from "@/pages/LoginPage";
 import SetupPage from "@/pages/SetupPage";
 import AuthCallback from "@/pages/AuthCallback";
+import LandingOSDashboard from "@/pages/landingos/LandingOSDashboard";
 import { Toaster } from "@/components/ui/sonner";
 
 // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
@@ -20,7 +21,9 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/" element={<SetupPage />} />
+      <Route path="/setup" element={<SetupPage />} />
+      <Route path="/landingos" element={<LandingOSDashboard />} />
+      <Route path="/" element={<LandingOSDashboard />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -28,7 +31,7 @@ function AppRouter() {
 
 function App() {
   return (
-    <div className="App dark">
+    <div className="App">
       <Toaster data-testid="global-toaster" richColors position="top-center" />
       <BrowserRouter>
         <AppRouter />
