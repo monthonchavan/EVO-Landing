@@ -542,6 +542,15 @@ export default function LandingOSDashboard() {
           <div className="border-t border-slate-200 my-3" />
           
           <a 
+            href="/LandingOS_Technical_Report.pdf" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="nav-item"
+          >
+            <FileText size={18} />
+            <span>Technical Report (PDF)</span>
+          </a>
+          <a 
             href="/docs/README.md" 
             target="_blank" 
             rel="noopener noreferrer"
