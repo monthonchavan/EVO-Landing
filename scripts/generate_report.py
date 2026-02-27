@@ -180,7 +180,7 @@ def generate_report():
     Event-Based Visual Odometry (EVO) algorithms for autonomous spacecraft precision landing. The platform 
     implements a neuromorphic vision pipeline utilizing Dynamic Vision Sensor (DVS) simulation with biologically-inspired 
     Spiking Neural Network (SNN) processing for robust feature detection and tracking in extreme planetary environments.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     story.append(Paragraph("""
     The system addresses critical challenges in planetary landing including high dynamic range imaging, motion blur 
     immunity, and real-time processing constraints. We present a novel SNN-based corner detection algorithm using 
@@ -188,12 +188,12 @@ def generate_report():
     while maintaining robustness to vibration-induced noise. The platform supports batch experimentation, hardware 
     data import (AEDAT 4.0, Prophesee RAW), and comprehensive performance analysis including position/attitude 
     error metrics, drift rate quantification, and comparative evaluation against traditional frame-based visual odometry.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     story.append(Paragraph("""
     Experimental results demonstrate the efficacy of event-based processing for descent navigation, with the SNN 
     pipeline achieving 168 corner detections and 98 tracked features during a simulated lunar descent from 200m 
     altitude, generating over 25,000 events while maintaining smooth real-time visualization at 5 Hz update rate.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     story.append(Spacer(1, 0.3*inch))
     
     # Keywords
@@ -261,7 +261,7 @@ def generate_report():
     limitations from continuous frame transmission. These constraints have motivated the exploration of 
     neuromorphic vision sensors—specifically Dynamic Vision Sensors (DVS)—as a paradigm shift in 
     spacecraft perception systems.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph("""
     Event cameras, inspired by biological retinas, operate on a fundamentally different principle than 
@@ -269,7 +269,7 @@ def generate_report():
     independently and asynchronously reports brightness changes as they occur, producing a sparse stream 
     of "events" with microsecond temporal resolution. This event-driven paradigm offers several compelling 
     advantages for planetary landing applications:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     # Advantages list
     advantages = [
@@ -286,7 +286,7 @@ def generate_report():
     ]
     
     for adv in advantages:
-        story.append(Paragraph(f"• {adv}", styles['BodyText']))
+        story.append(Paragraph(f"• {adv}", styles['CustomBodyText']))
     
     story.append(Spacer(1, 0.2*inch))
     
@@ -298,7 +298,7 @@ def generate_report():
     (3) a complete visual odometry system for 6-DOF pose estimation,
     (4) tools for batch experimentation and comparative analysis, and
     (5) support for hardware event camera data import and validation.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(PageBreak())
     
@@ -312,13 +312,13 @@ def generate_report():
     introduced by Lichtsteiner et al. (2008) at ETH Zurich, drawing inspiration from biological 
     retinal processing where photoreceptors respond to temporal contrast rather than absolute 
     light levels.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph("""
     In a DVS, each pixel operates independently and asynchronously, monitoring the logarithm of 
     light intensity. When the change in log intensity exceeds a threshold C, the pixel generates 
     an event with polarity indicating the direction of change:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph(
         "e = (x, y, t, p)   where   p = sign(log(I(t)) - log(I(t-Δt)) - C)",
@@ -330,7 +330,7 @@ def generate_report():
     temporal resolutions of 1 μs, latencies under 1 ms, and dynamic ranges exceeding 120 dB—
     specifications that far exceed conventional cameras and are particularly suited to the 
     demanding requirements of spacecraft navigation.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph("2.2 Spiking Neural Networks", styles['SubsectionHeading']))
     story.append(Paragraph("""
@@ -338,12 +338,12 @@ def generate_report():
     incorporating temporal dynamics through discrete spike events. Unlike rate-coded artificial 
     neural networks, SNNs communicate through precisely timed action potentials, enabling 
     energy-efficient neuromorphic computation and natural compatibility with event camera outputs.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph("""
     The Leaky Integrate-and-Fire (LIF) neuron model, employed in LandingOS, provides a 
     computationally tractable approximation of biological neuron dynamics:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph(
         "τ<sub>m</sub> dV/dt = -(V - V<sub>rest</sub>) + R·I(t)",
@@ -355,7 +355,7 @@ def generate_report():
     is the resting potential, R is the membrane resistance, and I(t) is the input current. When V 
     exceeds the threshold V<sub>th</sub>, the neuron fires a spike and V is reset to V<sub>reset</sub>, 
     entering a refractory period during which it cannot fire again.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph("2.3 Visual Odometry for Spacecraft", styles['SubsectionHeading']))
     story.append(Paragraph("""
@@ -363,7 +363,7 @@ def generate_report():
     observations. For spacecraft applications, VO provides a critical navigation modality that 
     complements inertial measurement and reduces reliance on ground-based tracking. Key challenges 
     in planetary landing VO include:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     challenges = [
         "Featureless terrain with repetitive textures (lunar regolith, martian dust)",
@@ -373,7 +373,7 @@ def generate_report():
         "Accumulated drift over extended descent trajectories"
     ]
     for ch in challenges:
-        story.append(Paragraph(f"• {ch}", styles['BodyText']))
+        story.append(Paragraph(f"• {ch}", styles['CustomBodyText']))
     
     story.append(PageBreak())
     
@@ -385,7 +385,7 @@ def generate_report():
     LandingOS employs a modular client-server architecture separating computation-intensive 
     simulation and processing from interactive visualization. This design enables efficient 
     research workflows while supporting future deployment on distributed systems.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     # Architecture diagram as table
     arch_data = [
@@ -415,37 +415,37 @@ def generate_report():
     story.append(Paragraph("3.2 Software Components", styles['SubsectionHeading']))
     story.append(Paragraph("""
     The backend processing pipeline consists of several interconnected modules:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph("""
     <b>Event Camera Simulator (EventCamera class):</b> Implements a physically-accurate model of 
     DVS operation including logarithmic intensity encoding, per-pixel contrast thresholds with 
     manufacturing variation, refractory period modeling, and realistic noise sources.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph("""
     <b>Terrain Generator (TerrainGenerator class):</b> Procedurally generates planetary surface 
     features including craters, rocks, and ridges with configurable density and size distributions 
     appropriate for lunar, martian, and asteroid environments.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph("""
     <b>SNN Corner Detector (SNNCornerDetector class):</b> Implements a grid of LIF neurons 
     that accumulate evidence for corner features based on event density and local gradient 
     structure, combining traditional Harris corner response with bio-inspired temporal integration.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph("""
     <b>Feature Tracker (FeatureTracker class):</b> Maintains tracked feature state across 
     event windows using spatial proximity matching with exponential smoothing for position 
     updates, inspired by STDP learning dynamics.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph("""
     <b>Visual Odometry (VisualOdometry class):</b> Estimates 6-DOF camera motion from 
     tracked features using centroid-based translation estimation and radial flow analysis 
     for depth changes.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(PageBreak())
     
@@ -457,7 +457,7 @@ def generate_report():
     The event camera simulation in LandingOS implements a first-principles model of DVS operation. 
     Each pixel maintains a reference log-intensity value L<sub>ref</sub>(x,y) and monitors the 
     current log-intensity L(x,y,t) = log(I(x,y,t)). An event is generated when:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph(
         "|L(x,y,t) - L<sub>ref</sub>(x,y)| > C(x,y)",
@@ -468,7 +468,7 @@ def generate_report():
     where C(x,y) is the contrast threshold. Upon event generation, the reference is updated: 
     L<sub>ref</sub>(x,y) ← L(x,y,t). The polarity p ∈ {-1, +1} indicates brightness increase 
     (ON event) or decrease (OFF event):
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph(
         "p = +1 if L(x,y,t) > L<sub>ref</sub>(x,y), else p = -1",
@@ -477,7 +477,7 @@ def generate_report():
     
     story.append(Paragraph("""
     The implementation uses NumPy vectorization for efficient computation across all pixels:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     code_text = """
     # Log-intensity computation (avoiding log(0))
@@ -496,7 +496,7 @@ def generate_report():
     story.append(Paragraph("4.2 Noise Modeling", styles['SubsectionHeading']))
     story.append(Paragraph("""
     Real DVS sensors exhibit several noise sources that are modeled in the simulation:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     noise_items = [
         "<b>Threshold Mismatch:</b> Manufacturing variations cause per-pixel threshold differences, "
@@ -509,7 +509,7 @@ def generate_report():
         "readout and arbitration delays."
     ]
     for item in noise_items:
-        story.append(Paragraph(f"• {item}", styles['BodyText']))
+        story.append(Paragraph(f"• {item}", styles['CustomBodyText']))
     
     story.append(Paragraph("4.3 Temporal Resolution", styles['SubsectionHeading']))
     story.append(Paragraph("""
@@ -518,7 +518,7 @@ def generate_report():
     balances computational efficiency with the high temporal resolution characteristic of event 
     cameras. For hardware validation, the platform supports direct import of events at their 
     native timestamps.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(PageBreak())
     
@@ -530,7 +530,7 @@ def generate_report():
     The corner detection system employs a grid of Leaky Integrate-and-Fire (LIF) neurons, 
     one per spatial cell of size 16×16 pixels. Each neuron integrates evidence for corner 
     features through the following discrete-time dynamics:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph(
         "V[t+1] = (1 - λ)·V[t] + I[t]",
@@ -540,7 +540,7 @@ def generate_report():
     story.append(Paragraph("""
     where V is the membrane potential, λ = 0.1 is the leak rate, and I[t] is the input current 
     derived from event activity and Harris corner response. The spike condition is:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph(
         "if V[t] ≥ V<sub>th</sub>: emit spike, V[t] ← 0, enter refractory (10 ms)",
@@ -550,14 +550,14 @@ def generate_report():
     story.append(Paragraph("""
     The refractory period prevents multiple detections of the same corner within a short 
     time window, providing temporal filtering of the corner response.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph("5.2 Harris-SNN Corner Detector", styles['SubsectionHeading']))
     story.append(Paragraph("""
     The input current to each LIF neuron combines event density with a Harris-like corner 
     response computed from the time surface. The time surface T(x,y) records the timestamp 
     of the most recent event at each pixel, decaying exponentially:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph(
         "T(x,y) ← T(x,y) · 0.95 (decay) then T(x,y) ← t (on event at (x,y))",
@@ -566,7 +566,7 @@ def generate_report():
     
     story.append(Paragraph("""
     The Harris response is computed from spatial gradients of the time surface within each cell:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph(
         "M = [Σ I<sub>x</sub>²    Σ I<sub>x</sub>I<sub>y</sub>]<br/>"
@@ -581,7 +581,7 @@ def generate_report():
     
     story.append(Paragraph("""
     The final input current combines normalized event count with corner response:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph(
         "I = 0.1 · N<sub>events</sub> + 0.5 · max(0, R)",
@@ -593,7 +593,7 @@ def generate_report():
     Detected corners are associated with persistent features using spatial proximity matching. 
     For each new corner, the tracker searches for existing features within a 25-pixel radius. 
     If a match is found, the feature position is updated using exponential smoothing:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph(
         "x<sub>feature</sub> ← 0.7 · x<sub>feature</sub> + 0.3 · x<sub>corner</sub>",
@@ -605,7 +605,7 @@ def generate_report():
     robustness to measurement noise while allowing features to track moving objects. Features 
     not updated within 500 ms are removed, preventing stale tracks from corrupting the 
     odometry estimate.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(PageBreak())
     
@@ -616,7 +616,7 @@ def generate_report():
     story.append(Paragraph("""
     The visual odometry module estimates camera motion from the distribution of tracked features 
     and events. Translation is estimated from the centroid offset of features from the image center:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph(
         "Δx = k<sub>t</sub> · (c̄<sub>x</sub> - 320) · Δt<br/>"
@@ -628,7 +628,7 @@ def generate_report():
     where (c̄<sub>x</sub>, c̄<sub>y</sub>) is the feature centroid, k<sub>t</sub> = 0.0008 is the 
     translation gain, and Δt is the timestep. The z-component (altitude change) is estimated from 
     event rate, which increases as the camera approaches the surface:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph(
         "Δz = -k<sub>z</sub> · (event_rate) · Δt,  k<sub>z</sub> = 10<sup>-5</sup>",
@@ -640,7 +640,7 @@ def generate_report():
     Estimated motion increments are integrated to maintain the current pose estimate. Small 
     random drift is added to model the accumulation of errors characteristic of dead-reckoning 
     navigation:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph(
         "x[t+1] = x[t] + Δx + N(0, σ<sub>drift</sub>)<br/>"
@@ -652,7 +652,7 @@ def generate_report():
     story.append(Paragraph("""
     where σ<sub>drift</sub> = 0.0003 models integration noise. Attitude estimation follows 
     a similar integration scheme with reduced drift magnitude.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(PageBreak())
     
@@ -663,7 +663,7 @@ def generate_report():
     story.append(Paragraph("""
     The backend is implemented in Python using FastAPI for the REST API layer. Key design 
     decisions include:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     impl_items = [
         "<b>Vectorized Computation:</b> NumPy arrays are used throughout for efficient batch "
@@ -676,13 +676,13 @@ def generate_report():
         "requests without blocking simulation progress."
     ]
     for item in impl_items:
-        story.append(Paragraph(f"• {item}", styles['BodyText']))
+        story.append(Paragraph(f"• {item}", styles['CustomBodyText']))
     
     story.append(Paragraph("7.2 Frontend Visualization", styles['SubsectionHeading']))
     story.append(Paragraph("""
     The frontend uses React for the user interface with Three.js for 3D visualization. Key 
     optimizations for smooth performance include:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     frontend_items = [
         "<b>Event Sampling:</b> Only ~100 representative events are rendered per frame while "
@@ -694,7 +694,7 @@ def generate_report():
         "<b>Lazy 3D Loading:</b> Three.js scene is initialized on-demand to reduce initial load time."
     ]
     for item in frontend_items:
-        story.append(Paragraph(f"• {item}", styles['BodyText']))
+        story.append(Paragraph(f"• {item}", styles['CustomBodyText']))
     
     story.append(Paragraph("7.3 API Design", styles['SubsectionHeading']))
     
@@ -733,7 +733,7 @@ def generate_report():
     story.append(Paragraph("""
     Experiments were conducted using the following default parameters, representative of 
     a lunar landing scenario:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     param_data = [
         ["Parameter", "Value", "Description"],
@@ -767,7 +767,7 @@ def generate_report():
     story.append(Paragraph("8.2 Performance Metrics", styles['SubsectionHeading']))
     story.append(Paragraph("""
     During a complete descent from 200m altitude, the following metrics were observed:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     results_data = [
         ["Metric", "Value", "Notes"],
@@ -800,7 +800,7 @@ def generate_report():
     story.append(Paragraph("""
     The batch experiment system enables systematic comparison across configurations. 
     Key findings from comparative analysis include:
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     findings = [
         "<b>SNN vs Standard Processing:</b> The SNN corner detector achieves comparable accuracy "
@@ -815,7 +815,7 @@ def generate_report():
         "decreases (more terrain features visible), with rates exceeding 5,000 events/step below 100m."
     ]
     for f in findings:
-        story.append(Paragraph(f"• {f}", styles['BodyText']))
+        story.append(Paragraph(f"• {f}", styles['CustomBodyText']))
     
     story.append(PageBreak())
     
@@ -827,11 +827,11 @@ def generate_report():
     navigation in spacecraft landing applications. The platform implements a complete pipeline from 
     event camera simulation through SNN-based feature detection to visual odometry, providing 
     researchers with tools for algorithm development, validation, and comparative analysis.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(Paragraph("""
     <b>Key Contributions:</b>
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     contributions = [
         "A physically-accurate event camera simulation model suitable for planetary landing scenarios",
@@ -841,11 +841,11 @@ def generate_report():
         "Support for hardware event camera data import and validation"
     ]
     for c in contributions:
-        story.append(Paragraph(f"• {c}", styles['BodyText']))
+        story.append(Paragraph(f"• {c}", styles['CustomBodyText']))
     
     story.append(Paragraph("""
     <b>Future Work:</b>
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     future = [
         "<b>Hardware-in-the-Loop:</b> Integration with physical DVS sensors and real-time "
@@ -859,7 +859,7 @@ def generate_report():
         "implementation"
     ]
     for f in future:
-        story.append(Paragraph(f"• {f}", styles['BodyText']))
+        story.append(Paragraph(f"• {f}", styles['CustomBodyText']))
     
     story.append(Spacer(1, 0.5*inch))
     story.append(Paragraph("""
@@ -867,7 +867,7 @@ def generate_report():
     achieving robust feature detection and tracking in challenging descent conditions. The 
     platform provides a foundation for continued research toward flight-ready event-based 
     navigation systems for planetary exploration.
-    """, styles['BodyText']))
+    """, styles['CustomBodyText']))
     
     story.append(PageBreak())
     
