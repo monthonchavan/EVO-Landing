@@ -24,8 +24,9 @@ from whatsapp_monitor import get_whatsapp_status, fix_registered_flag
 # Gateway management (supervisor-based)
 from gateway_config import write_gateway_env, clear_gateway_env
 from supervisor_client import SupervisorClient
-# LandingOS EVO Platform
+# LandingOS EVO Platform (Enhanced Local Version)
 from landingos_api import landingos_router
+from batch_experiments import BatchExperimentManager, ExperimentConfig, PRESET_EXPERIMENTS
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
