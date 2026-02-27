@@ -3,20 +3,28 @@ LandingOS API - Event-Driven Visual Navigation Platform
 FastAPI backend for EVO simulation and experiment management
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 from datetime import datetime, timezone
 import uuid
+import asyncio
+import json
 
 from evo_engine import EVOSimulator, SimulationConfig, TerrainType
 from ai_analysis import ai_analyzer
+from hardware_import import event_parser, data_exporter, HardwareDataset
 
 # Router for LandingOS API
 landingos_router = APIRouter(prefix="/api/landingos", tags=["LandingOS"])
 
 # In-memory storage for active simulations
 active_simulations: Dict[str, EVOSimulator] = {}
+# Storage for imported hardware datasets
+imported_datasets: Dict[str, Dict] = {}
+# WebSocket connections for real-time updates
+websocket_connections: List[WebSocket] = []
 
 # ============== Pydantic Models ==============
 
