@@ -68,11 +68,12 @@ function FeatureMarkers({ features }) {
 
 // Trajectory line
 function TrajectoryLine({ poses, color = '#00FF00', lineWidth = 2 }) {
-  if (!poses || poses.length < 2) return null;
-  
   const points = useMemo(() => {
+    if (!poses || poses.length < 2) return [];
     return poses.map(p => new THREE.Vector3(p.x / 2, p.z / 2, p.y / 2));
   }, [poses]);
+  
+  if (points.length < 2) return null;
   
   return (
     <Line
