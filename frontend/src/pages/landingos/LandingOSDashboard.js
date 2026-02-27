@@ -117,25 +117,19 @@ function EventCloud({ events }) {
   );
 }
 
-// Trajectory line using native Three.js line
-function TrajectoryLine({ poses, color = '#0055FF' }) {
-  const lineRef = useRef();
-  
-  const geometry = React.useMemo(() => {
-    if (!poses || poses.length < 2) {
-      return null;
-    }
-    const points = poses.map(p => new THREE.Vector3(p.x * 0.1, p.z * 0.1, p.y * 0.1));
-    return new THREE.BufferGeometry().setFromPoints(points);
-  }, [poses]);
-  
-  if (!geometry) return null;
+// Trajectory visualization using a mesh-based approach
+function TrajectoryPath({ poses, color = '#0055FF' }) {
+  if (!poses || poses.length < 2) return null;
   
   return (
-    <line ref={lineRef}>
-      <primitive object={geometry} attach="geometry" />
-      <lineBasicMaterial color={color} linewidth={2} />
-    </line>
+    <group>
+      {poses.map((pose, i) => (
+        <mesh key={i} position={[pose.x * 0.1, pose.z * 0.1, pose.y * 0.1]}>
+          <sphereGeometry args={[0.3, 8, 8]} />
+          <meshBasicMaterial color={color} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
