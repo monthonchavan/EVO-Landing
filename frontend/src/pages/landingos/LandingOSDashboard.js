@@ -463,6 +463,35 @@ export default function LandingOSDashboard() {
             <Brain size={18} />
             <span>AI Analysis</span>
           </div>
+          
+          <div className="border-t border-slate-200 my-3" />
+          
+          <div 
+            className="nav-item" 
+            data-testid="nav-import"
+            onClick={() => setShowImportModal(true)}
+          >
+            <Upload size={18} />
+            <span>Import Data</span>
+          </div>
+          <div className="nav-item relative" data-testid="nav-export">
+            <Download size={18} />
+            <span onClick={() => setShowExportMenu(!showExportMenu)}>Export Data</span>
+            {showExportMenu && (
+              <ExportMenu simulationId={simulationId} onClose={() => setShowExportMenu(false)} />
+            )}
+          </div>
+          <a 
+            href="/docs/README.md" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="nav-item"
+            data-testid="nav-docs"
+          >
+            <FileText size={18} />
+            <span>Documentation</span>
+          </a>
+          
           <div className="nav-item" data-testid="nav-settings">
             <Settings size={18} />
             <span>Settings</span>
