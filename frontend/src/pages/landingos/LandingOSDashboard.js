@@ -1,91 +1,132 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Stars } from '@react-three/drei';
-import * as THREE from 'three';
 import {
   Play, Pause, RotateCcw, Settings, Cpu, Activity, Gauge, 
-  Mountain, Zap, Brain, ChevronRight, AlertTriangle, CheckCircle,
-  BarChart3, Clock, Target, Layers
+  Mountain, Zap, Brain, AlertTriangle, CheckCircle,
+  BarChart3, Clock, Layers, Box
 } from 'lucide-react';
 import { LineChart, Line as RechartsLine, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
-// Terrain mesh component for 3D view
-function TerrainMesh({ terrainType }) {
-  const color = terrainType === 'mars' ? '#8B4513' : '#4A4A4A';
+// 2D Event visualization canvas
+function EventCanvas({ events }) {
+  const canvasRef = useRef(null);
+  
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Clear canvas
+    ctx.fillStyle = '#0F172A';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Draw grid
+    ctx.strokeStyle = '#1E293B';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < width; x += 32) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+    for (let y = 0; y < height; y += 32) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+    
+    // Draw events
+    if (events && events.length > 0) {
+      events.slice(0, 500).forEach(event => {
+        const x = (event.x / 640) * width;
+        const y = (event.y / 480) * height;
+        
+        ctx.fillStyle = event.polarity > 0 ? '#0055FF' : '#FF5F00';
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+    
+    // Draw center crosshair
+    ctx.strokeStyle = '#64748B';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(width / 2, 0);
+    ctx.lineTo(width / 2, height);
+    ctx.moveTo(0, height / 2);
+    ctx.lineTo(width, height / 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+  }, [events]);
   
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -50, 0]}>
-      <planeGeometry args={[200, 200, 32, 32]} />
-      <meshStandardMaterial color={color} roughness={0.9} wireframe={false} />
-    </mesh>
+    <canvas 
+      ref={canvasRef} 
+      width={640} 
+      height={480} 
+      className="w-full h-full rounded-lg"
+      data-testid="event-canvas"
+    />
   );
 }
 
-// Lander visualization
-function Lander({ pose }) {
-  const { x = 0, y = 0, z = 100 } = pose || {};
-  const scale = Math.max(0.5, Math.min(2, z / 200));
+// Altitude indicator
+function AltitudeIndicator({ altitude, maxAltitude }) {
+  const percentage = Math.min(100, (altitude / maxAltitude) * 100);
   
   return (
-    <group position={[x * 0.1, z * 0.1, y * 0.1]}>
-      {/* Lander body */}
-      <mesh>
-        <coneGeometry args={[2 * scale, 4 * scale, 6]} />
-        <meshStandardMaterial color="#E2E8F0" metalness={0.8} roughness={0.2} />
-      </mesh>
-      {/* Legs */}
-      {[0, 120, 240].map((angle, i) => (
-        <mesh key={i} position={[
-          Math.cos(angle * Math.PI / 180) * 1.5 * scale,
-          -2 * scale,
-          Math.sin(angle * Math.PI / 180) * 1.5 * scale
-        ]}>
-          <cylinderGeometry args={[0.1 * scale, 0.1 * scale, 2 * scale]} />
-          <meshStandardMaterial color="#94A3B8" />
-        </mesh>
-      ))}
-      {/* Thrust indicator */}
-      <pointLight position={[0, -3 * scale, 0]} color="#FF5F00" intensity={2} distance={10} />
-    </group>
+    <div className="flex flex-col items-center gap-2">
+      <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Altitude</div>
+      <div className="relative w-16 h-48 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+        <div 
+          className="absolute bottom-0 w-full bg-gradient-to-t from-blue-600 to-blue-400 transition-all duration-300"
+          style={{ height: `${percentage}%` }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="font-mono text-sm font-bold text-slate-800 bg-white/80 px-2 py-1 rounded">
+            {altitude.toFixed(0)}m
+          </span>
+        </div>
+      </div>
+      <div className="text-xs text-slate-400">Ground</div>
+    </div>
   );
 }
 
-// Event cloud visualization
-function EventCloud({ events }) {
-  if (!events || events.length === 0) return null;
+// Pose display
+function PoseDisplay({ pose, label, color }) {
+  if (!pose) return null;
   
   return (
-    <group>
-      {events.slice(0, 200).map((event, i) => (
-        <mesh key={i} position={[
-          (event.x - 320) * 0.05,
-          20 + (i % 10),
-          (event.y - 240) * 0.05
-        ]}>
-          <sphereGeometry args={[0.15, 4, 4]} />
-          <meshBasicMaterial color={event.polarity > 0 ? '#0055FF' : '#FF5F00'} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-// Trajectory visualization using a mesh-based approach
-function TrajectoryPath({ poses, color = '#0055FF' }) {
-  if (!poses || poses.length < 2) return null;
-  
-  return (
-    <group>
-      {poses.map((pose, i) => (
-        <mesh key={i} position={[pose.x * 0.1, pose.z * 0.1, pose.y * 0.1]}>
-          <sphereGeometry args={[0.3, 8, 8]} />
-          <meshBasicMaterial color={color} />
-        </mesh>
-      ))}
-    </group>
+    <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+        <span className="text-xs font-medium text-slate-600 uppercase">{label}</span>
+      </div>
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div>
+          <div className="text-xs text-slate-400">X</div>
+          <div className="font-mono text-sm">{(pose.x || 0).toFixed(2)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-slate-400">Y</div>
+          <div className="font-mono text-sm">{(pose.y || 0).toFixed(2)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-slate-400">Z</div>
+          <div className="font-mono text-sm">{(pose.z || 0).toFixed(2)}</div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -235,10 +276,13 @@ export default function LandingOSDashboard() {
   // Auto-create simulation on mount
   useEffect(() => {
     createSimulation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   const metrics = simData?.metrics || {};
   const altitude = simData?.altitude || config.initial_altitude;
+  const currentGT = groundTruth[groundTruth.length - 1];
+  const currentEst = estimated[estimated.length - 1];
   
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
@@ -312,10 +356,10 @@ export default function LandingOSDashboard() {
         
         {/* Bento Grid Dashboard */}
         <div className="bento-grid">
-          {/* 3D Viewport - Large */}
+          {/* Event Visualization - Large */}
           <div className="bento-card col-span-8 row-span-2" style={{ minHeight: '400px' }}>
             <div className="bento-card-header">
-              <span className="bento-card-title">3D Simulation View</span>
+              <span className="bento-card-title">Event Camera View</span>
               <div className="flex gap-2">
                 <button
                   data-testid="btn-play"
@@ -335,33 +379,11 @@ export default function LandingOSDashboard() {
                 </button>
               </div>
             </div>
-            <div className="viewport-3d" style={{ height: 'calc(100% - 64px)' }}>
-              <Canvas camera={{ position: [50, 80, 50], fov: 60 }}>
-                <ambientLight intensity={0.4} />
-                <directionalLight position={[50, 100, 50]} intensity={1} />
-                <Stars radius={200} depth={100} count={2000} factor={4} fade />
-                
-                <TerrainMesh terrainType={config.terrain_type} />
-                <Lander pose={simData?.ground_truth || { z: altitude }} />
-                <EventCloud events={events} />
-                <TrajectoryPath poses={groundTruth} color="#0055FF" />
-                <TrajectoryPath poses={estimated} color="#FF5F00" />
-                
-                <OrbitControls enablePan enableZoom enableRotate />
-                <gridHelper args={[200, 40, '#334155', '#1E293B']} position={[0, -50, 0]} />
-              </Canvas>
-              
-              {/* Overlay Info */}
-              <div className="absolute bottom-4 left-4 glass-panel rounded-lg px-4 py-2">
-                <div className="flex items-center gap-4 text-sm">
-                  <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded-full bg-blue-600" /> Ground Truth
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded-full bg-orange-500" /> Estimated
-                  </span>
-                </div>
+            <div className="bento-card-content flex gap-4" style={{ height: 'calc(100% - 64px)' }}>
+              <div className="flex-1 bg-slate-900 rounded-lg overflow-hidden">
+                <EventCanvas events={events} />
               </div>
+              <AltitudeIndicator altitude={altitude} maxAltitude={config.initial_altitude} />
             </div>
           </div>
           
@@ -412,6 +434,18 @@ export default function LandingOSDashboard() {
                   </span>
                 </div>
               </div>
+            </div>
+          </div>
+          
+          {/* Pose Comparison */}
+          <div className="bento-card col-span-4">
+            <div className="bento-card-header">
+              <span className="bento-card-title">Pose Estimation</span>
+              <Box size={16} className="text-slate-400" />
+            </div>
+            <div className="bento-card-content space-y-3">
+              <PoseDisplay pose={currentGT} label="Ground Truth" color="#0055FF" />
+              <PoseDisplay pose={currentEst} label="EVO Estimate" color="#FF5F00" />
             </div>
           </div>
           
@@ -516,7 +550,7 @@ export default function LandingOSDashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                   <XAxis 
                     dataKey="time" 
-                    tickFormatter={v => `${v.toFixed(1)}s`}
+                    tickFormatter={v => `${v?.toFixed(1) || 0}s`}
                     stroke="#94A3B8"
                     fontSize={11}
                   />
@@ -554,7 +588,7 @@ export default function LandingOSDashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                   <XAxis 
                     dataKey="time" 
-                    tickFormatter={v => `${v.toFixed(1)}s`}
+                    tickFormatter={v => `${v?.toFixed(1) || 0}s`}
                     stroke="#94A3B8"
                     fontSize={11}
                   />
