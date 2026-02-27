@@ -253,9 +253,18 @@ class EVOSimulator:
     
     def step(self, dt: float = 0.05) -> Dict:
         """Advance simulation by dt seconds"""
-        if self.state.current_pose.z <= 0:
+        # Don't reset when landed - just stop stepping
+        if self.state.current_pose.z <= 0 or self.state.is_landed:
             self.state.is_running = False
-            return {"status": "landed", "state": self._get_state_dict()}
+            self.state.is_landed = True
+            return {
+                "status": "landed", 
+                "state": self._get_state_dict(),
+                "time": self.state.current_time,
+                "altitude": max(0, self.state.current_pose.z),
+                "total_events": self.state.events_generated,
+                "metrics": self._calculate_metrics() if self.state.ground_truth_poses else {}
+            }
         
         self.state.is_running = True
         self.state.current_time += dt
@@ -269,6 +278,11 @@ class EVOSimulator:
         # Generate events from frame
         events = self.camera.generate_events(frame, self.state.current_time * 1e6)
         self.state.events_generated += len(events)
+        
+        # Store events in history (limit to last 10000 for memory)
+        self.state.events_history.extend(events)
+        if len(self.state.events_history) > 10000:
+            self.state.events_history = self.state.events_history[-10000:]
         
         # Run visual odometry
         motion = self.vo.process_events(events, dt)
@@ -288,11 +302,20 @@ class EVOSimulator:
             "roll": est_pose.roll, "pitch": est_pose.pitch, "yaw": est_pose.yaw
         })
         
-        # Calculate metrics
+        # Calculate and store metrics
         metrics = self._calculate_metrics()
+        self.state.metrics_history.append({
+            "time": self.state.current_time,
+            **metrics
+        })
+        
+        # Check if landed
+        if gt_pose.z <= 0:
+            self.state.is_landed = True
+            self.state.is_running = False
         
         return {
-            "status": "running",
+            "status": "landed" if self.state.is_landed else "running",
             "time": self.state.current_time,
             "ground_truth": self.state.ground_truth_poses[-1],
             "estimated": self.state.estimated_poses[-1],
@@ -300,7 +323,7 @@ class EVOSimulator:
             "event_count": len(events),
             "total_events": self.state.events_generated,
             "metrics": metrics,
-            "altitude": gt_pose.z
+            "altitude": max(0, gt_pose.z)
         }
     
     def _update_ground_truth(self, dt: float) -> Pose:
