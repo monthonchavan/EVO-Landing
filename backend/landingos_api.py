@@ -157,6 +157,15 @@ async def delete_simulation(sim_id: str):
     del active_simulations[sim_id]
     return {"status": "deleted", "simulation_id": sim_id}
 
+@landingos_router.get("/simulation/{sim_id}/3d")
+async def get_3d_data(sim_id: str):
+    """Get 3D visualization data for simulation"""
+    if sim_id not in active_simulations:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    
+    simulator = active_simulations[sim_id]
+    return simulator.get_3d_data()
+
 @landingos_router.get("/simulations")
 async def list_simulations():
     """List all active simulations"""
