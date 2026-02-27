@@ -46,22 +46,21 @@ function EventCanvas({ events, corners }) {
       ctx.stroke();
     }
     
-    // Draw events with glow effect
+    // Draw events - simplified for performance (no glow effect)
     if (events && events.length > 0) {
-      events.slice(0, 500).forEach(event => {
+      // Limit to 50 events max for smooth rendering
+      const limitedEvents = events.slice(0, 50);
+      
+      limitedEvents.forEach(event => {
         const x = (event.x / 640) * width;
         const y = (event.y / 480) * height;
         
-        // Glow effect
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = event.polarity > 0 ? '#0088FF' : '#FF6600';
-        
+        // Simple circles without glow for performance
         ctx.fillStyle = event.polarity > 0 ? '#0055FF' : '#FF5F00';
         ctx.beginPath();
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
         ctx.fill();
       });
-      ctx.shadowBlur = 0;
     }
     
     // Draw detected corners (SNN)
