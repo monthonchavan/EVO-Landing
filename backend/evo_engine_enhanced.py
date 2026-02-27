@@ -144,26 +144,34 @@ class LightweightTerrainGenerator:
 
 
 class LightweightEventCamera:
-    """Simplified event camera - generates fewer events"""
+    """Simplified event camera - generates events"""
     
     def __init__(self, resolution: Tuple[int, int], noise_level: float = 0.1, max_events: int = 200):
         self.width, self.height = resolution
         self.noise_level = noise_level
         self.max_events = max_events
-        self.last_frame = np.zeros((self.height // 4, self.width // 4), dtype=np.float32)  # Downsampled
-        self.threshold = 0.2
+        self.last_frame = None  # Will be set on first frame
+        self.threshold = 0.05  # Lower threshold for more events
     
     def generate_events(self, current_frame: np.ndarray, timestamp: float) -> List[Dict]:
-        # Downsample frame for faster processing
-        h, w = self.height // 4, self.width // 4
-        downsampled = np.zeros((h, w), dtype=np.float32)
-        
-        for y in range(h):
-            for x in range(w):
-                downsampled[y, x] = current_frame[y * 4, x * 4] if y * 4 < current_frame.shape[0] and x * 4 < current_frame.shape[1] else 0
-        
-        diff = downsampled - self.last_frame
         events = []
+        
+        # Initialize last frame if needed
+        if self.last_frame is None:
+            self.last_frame = current_frame.copy()
+            # Generate some initial events based on frame brightness
+            bright_coords = np.argwhere(current_frame > 0.1)
+            for i, (y, x) in enumerate(bright_coords[:self.max_events // 2]):
+                events.append({
+                    "x": int(x),
+                    "y": int(y),
+                    "timestamp": timestamp + random.uniform(0, 50),
+                    "polarity": 1
+                })
+            return events
+        
+        # Calculate difference
+        diff = current_frame - self.last_frame
         
         # Find event locations
         pos_mask = diff > self.threshold
@@ -172,12 +180,37 @@ class LightweightEventCamera:
         pos_coords = np.argwhere(pos_mask)
         neg_coords = np.argwhere(neg_mask)
         
-        # Limit events
+        # Limit events per polarity
         max_per_polarity = self.max_events // 2
         
         for i, (y, x) in enumerate(pos_coords[:max_per_polarity]):
             events.append({
-                "x": int(x * 4),  # Scale back up
+                "x": int(x),
+                "y": int(y),
+                "timestamp": timestamp + random.uniform(0, 50),
+                "polarity": 1
+            })
+        
+        for i, (y, x) in enumerate(neg_coords[:max_per_polarity]):
+            events.append({
+                "x": int(x),
+                "y": int(y),
+                "timestamp": timestamp + random.uniform(0, 50),
+                "polarity": -1
+            })
+        
+        # Add minimal noise events to ensure some activity
+        if len(events) < 10:
+            for _ in range(15):
+                events.append({
+                    "x": random.randint(0, self.width - 1),
+                    "y": random.randint(0, self.height - 1),
+                    "timestamp": timestamp + random.uniform(0, 100),
+                    "polarity": random.choice([-1, 1])
+                })
+        
+        self.last_frame = current_frame.copy()
+        return events[:self.max_events]
                 "y": int(y * 4),
                 "timestamp": timestamp + random.uniform(0, 50),
                 "polarity": 1
