@@ -1,7 +1,14 @@
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Grid } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
+
+// Simple Grid Floor
+function GridFloor() {
+  return (
+    <gridHelper args={[2000, 100, '#1a1a2e', '#2a2a4e']} rotation={[0, 0, 0]} />
+  );
+}
 
 // Terrain mesh component
 function TerrainMesh({ heightmapData }) {
@@ -10,19 +17,22 @@ function TerrainMesh({ heightmapData }) {
   const geometry = useMemo(() => {
     if (!heightmapData || !heightmapData.data) return null;
     
-    const { data, width, height, scale } = heightmapData;
-    const geo = new THREE.PlaneGeometry(scale, scale, Math.min(width - 1, 127), Math.min(height - 1, 127));
+    const { data, scale } = heightmapData;
+    const width = Math.min(data[0]?.length || 64, 64);
+    const height = Math.min(data.length, 64);
+    
+    const geo = new THREE.PlaneGeometry(scale || 1000, scale || 1000, width - 1, height - 1);
     
     const positions = geo.attributes.position.array;
-    const stepX = width / 128;
-    const stepY = height / 128;
+    const stepX = (data[0]?.length || 64) / width;
+    const stepY = data.length / height;
     
-    for (let i = 0; i <= 127; i++) {
-      for (let j = 0; j <= 127; j++) {
-        const idx = i * 128 + j;
-        const dataX = Math.min(Math.floor(j * stepX), width - 1);
-        const dataY = Math.min(Math.floor(i * stepY), height - 1);
-        if (dataY < data.length && dataX < data[0]?.length) {
+    for (let i = 0; i < height; i++) {
+      for (let j = 0; j < width; j++) {
+        const idx = i * width + j;
+        const dataX = Math.floor(j * stepX);
+        const dataY = Math.floor(i * stepY);
+        if (dataY < data.length && data[dataY] && dataX < data[dataY].length) {
           positions[idx * 3 + 2] = (data[dataY][dataX] || 0) * 50;
         }
       }
@@ -74,7 +84,6 @@ function FeatureMarkers({ features }) {
 function TrajectoryPath({ poses, color = '#00FF00' }) {
   if (!poses || poses.length < 2) return null;
   
-  // Only show every Nth point to avoid clutter
   const filteredPoses = poses.filter((_, i) => i % 5 === 0 || i === poses.length - 1);
   
   return (
@@ -108,13 +117,11 @@ function Lander({ pose }) {
   
   return (
     <group ref={meshRef}>
-      {/* Lander body */}
       <mesh castShadow>
         <coneGeometry args={[15, 30, 8]} />
         <meshStandardMaterial color="#C0C0C0" metalness={0.5} roughness={0.3} />
       </mesh>
       
-      {/* Landing legs */}
       {[0, 90, 180, 270].map((angle, idx) => (
         <mesh 
           key={idx} 
@@ -130,7 +137,6 @@ function Lander({ pose }) {
         </mesh>
       ))}
       
-      {/* Thrust effect */}
       {pose.z > 10 && (
         <mesh position={[0, -25, 0]}>
           <coneGeometry args={[8, 30, 8]} />
@@ -138,13 +144,12 @@ function Lander({ pose }) {
         </mesh>
       )}
       
-      {/* Coordinate axes */}
       <axesHelper args={[30]} />
     </group>
   );
 }
 
-// Camera controller for smooth following
+// Camera controller
 function CameraController({ pose, followMode }) {
   const { camera } = useThree();
   
@@ -164,8 +169,6 @@ function CameraController({ pose, followMode }) {
 
 // Stars background
 function Stars() {
-  const starsRef = useRef();
-  
   const positions = useMemo(() => {
     const pos = new Float32Array(3000);
     for (let i = 0; i < 1000; i++) {
@@ -177,7 +180,7 @@ function Stars() {
   }, []);
   
   return (
-    <points ref={starsRef}>
+    <points>
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
@@ -202,34 +205,16 @@ export default function Scene3D({
 }) {
   return (
     <Canvas shadows camera={{ position: [0, 600, 800], fov: 60 }}>
-      {/* Lighting */}
       <ambientLight intensity={0.4} />
-      <directionalLight
-        position={[200, 500, 300]}
-        intensity={1}
-        castShadow
-      />
+      <directionalLight position={[200, 500, 300]} intensity={1} castShadow />
       <pointLight position={[-200, 300, -200]} intensity={0.3} />
       
-      {/* Sky */}
       <color attach="background" args={['#0a0a1a']} />
       <fog attach="fog" args={['#0a0a1a', 500, 2000]} />
       
-      {/* Stars */}
       <Stars />
+      <GridFloor />
       
-      {/* Grid */}
-      <Grid
-        args={[2000, 2000]}
-        cellSize={50}
-        cellColor="#1a1a2e"
-        sectionSize={200}
-        sectionColor="#2a2a4e"
-        fadeDistance={1500}
-        infiniteGrid
-      />
-      
-      {/* Terrain */}
       {terrainData && (
         <>
           <TerrainMesh heightmapData={terrainData.heightmap} />
@@ -237,14 +222,11 @@ export default function Scene3D({
         </>
       )}
       
-      {/* Trajectories */}
       <TrajectoryPath poses={groundTruthTrajectory} color="#00FF00" />
       <TrajectoryPath poses={estimatedTrajectory} color="#FF6600" />
       
-      {/* Lander */}
       <Lander pose={currentPose} />
       
-      {/* Camera control */}
       <CameraController pose={currentPose} followMode={followCamera} />
       <OrbitControls 
         enableDamping 
