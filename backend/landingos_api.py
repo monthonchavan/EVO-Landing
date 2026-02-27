@@ -3,7 +3,7 @@ LandingOS API - Event-Driven Visual Navigation Platform
 FastAPI backend for EVO simulation and experiment management
 """
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import uuid
 import asyncio
 import json
+from enum import Enum
 
 # Import enhanced engine with SNN support
 from evo_engine_enhanced import EVOSimulatorEnhanced as EVOSimulator, SimulationConfig, TerrainType
@@ -20,6 +21,17 @@ from batch_experiments import BatchExperimentManager, ExperimentConfig, PRESET_E
 
 # Initialize batch experiment manager
 batch_manager = BatchExperimentManager()
+
+# Task status tracking
+class TaskStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+# In-memory task storage
+batch_tasks: Dict[str, Dict] = {}
+comparison_tasks: Dict[str, Dict] = {}
 
 # Router for LandingOS API
 landingos_router = APIRouter(prefix="/api/landingos", tags=["LandingOS"])
@@ -309,61 +321,104 @@ async def get_experiment_presets():
             presets[name] = {"name": config.name, "config": config.__dict__}
     return presets
 
-@landingos_router.post("/experiments/run")
-async def run_batch_experiments(experiments: List[Dict]):
-    """Run batch experiments"""
-    from batch_experiments import ExperimentConfig as BatchExpConfig
-    
-    configs = []
-    for exp in experiments:
-        configs.append(BatchExpConfig(**exp))
-    
-    results = batch_manager.run_batch(configs)
-    
-    return {
-        "experiments_completed": len(results),
-        "results": [
+def _run_batch_experiments_background(task_id: str, configs: List[ExperimentConfig]):
+    """Background task for running batch experiments"""
+    try:
+        batch_tasks[task_id]["status"] = TaskStatus.RUNNING
+        batch_tasks[task_id]["started_at"] = datetime.now(timezone.utc).isoformat()
+        
+        results = batch_manager.run_batch(configs)
+        
+        batch_tasks[task_id]["status"] = TaskStatus.COMPLETED
+        batch_tasks[task_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
+        batch_tasks[task_id]["results"] = [
             {
                 "id": r.id,
                 "name": r.name,
                 "final_position_error": r.final_position_error,
                 "final_attitude_error": r.final_attitude_error,
                 "average_position_error": r.average_position_error,
+                "max_position_error": r.max_position_error,
+                "average_drift_rate": r.average_drift_rate,
+                "total_events": r.total_events,
                 "duration": r.duration
             }
             for r in results
         ]
+        batch_tasks[task_id]["experiment_ids"] = [r.id for r in results]
+        
+    except Exception as e:
+        batch_tasks[task_id]["status"] = TaskStatus.FAILED
+        batch_tasks[task_id]["error"] = str(e)
+        batch_tasks[task_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+@landingos_router.post("/experiments/run")
+async def run_batch_experiments(experiments: List[Dict], background_tasks: BackgroundTasks):
+    """Start batch experiments in background"""
+    from batch_experiments import ExperimentConfig as BatchExpConfig
+    
+    # Create task
+    task_id = str(uuid.uuid4())[:12]
+    
+    # Parse configs
+    configs = []
+    for exp in experiments:
+        configs.append(BatchExpConfig(**exp))
+    
+    # Store task
+    batch_tasks[task_id] = {
+        "id": task_id,
+        "status": TaskStatus.PENDING,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "experiment_count": len(configs),
+        "experiment_names": [c.name for c in configs]
+    }
+    
+    # Start background task
+    background_tasks.add_task(_run_batch_experiments_background, task_id, configs)
+    
+    return {
+        "task_id": task_id,
+        "status": "pending",
+        "message": "Batch experiments started in background",
+        "experiment_count": len(configs),
+        "poll_url": f"/api/landingos/experiments/task/{task_id}"
     }
 
 @landingos_router.post("/experiments/run-preset/{preset_name}")
-async def run_preset_experiment(preset_name: str):
-    """Run a preset experiment"""
+async def run_preset_experiment(preset_name: str, background_tasks: BackgroundTasks):
+    """Run a preset experiment in background"""
     if preset_name not in PRESET_EXPERIMENTS:
         raise HTTPException(status_code=404, detail="Preset not found")
     
     preset = PRESET_EXPERIMENTS[preset_name]
     
-    if isinstance(preset, list):
-        results = batch_manager.run_batch(preset)
-    else:
-        exp_id = batch_manager.create_experiment(preset)
-        result = batch_manager.run_experiment(exp_id)
-        results = [result]
+    # Create task
+    task_id = str(uuid.uuid4())[:12]
+    
+    # Convert preset to list of configs
+    configs = preset if isinstance(preset, list) else [preset]
+    
+    # Store task
+    batch_tasks[task_id] = {
+        "id": task_id,
+        "status": TaskStatus.PENDING,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "preset_name": preset_name,
+        "experiment_count": len(configs),
+        "experiment_names": [c.name for c in configs]
+    }
+    
+    # Start background task
+    background_tasks.add_task(_run_batch_experiments_background, task_id, configs)
     
     return {
+        "task_id": task_id,
         "preset": preset_name,
-        "experiments_completed": len(results),
-        "results": [
-            {
-                "id": r.id,
-                "name": r.name,
-                "final_position_error": r.final_position_error,
-                "final_attitude_error": r.final_attitude_error,
-                "average_position_error": r.average_position_error,
-                "duration": r.duration
-            }
-            for r in results
-        ]
+        "status": "pending",
+        "message": "Preset experiment started in background",
+        "experiment_count": len(configs),
+        "poll_url": f"/api/landingos/experiments/task/{task_id}"
     }
 
 @landingos_router.get("/experiments/list")
@@ -394,10 +449,51 @@ async def get_batch_experiment(exp_id: str):
         "metrics_history": result.metrics_history
     }
 
+def _run_comparison_background(task_id: str, exp_ids: List[str]):
+    """Background task for comparing experiments"""
+    try:
+        comparison_tasks[task_id]["status"] = TaskStatus.RUNNING
+        comparison_tasks[task_id]["started_at"] = datetime.now(timezone.utc).isoformat()
+        
+        comparison = batch_manager.compare_experiments(exp_ids)
+        
+        comparison_tasks[task_id]["status"] = TaskStatus.COMPLETED
+        comparison_tasks[task_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
+        comparison_tasks[task_id]["results"] = comparison
+        
+    except Exception as e:
+        comparison_tasks[task_id]["status"] = TaskStatus.FAILED
+        comparison_tasks[task_id]["error"] = str(e)
+        comparison_tasks[task_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
+
 @landingos_router.post("/experiments/compare")
-async def compare_batch_experiments(exp_ids: List[str]):
-    """Compare multiple batch experiments"""
-    return batch_manager.compare_experiments(exp_ids)
+async def compare_batch_experiments(exp_ids: List[str], background_tasks: BackgroundTasks):
+    """Start comparison of multiple batch experiments in background"""
+    if not exp_ids:
+        raise HTTPException(status_code=400, detail="No experiment IDs provided")
+    
+    # Create task
+    task_id = str(uuid.uuid4())[:12]
+    
+    # Store task
+    comparison_tasks[task_id] = {
+        "id": task_id,
+        "status": TaskStatus.PENDING,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "experiment_ids": exp_ids,
+        "experiment_count": len(exp_ids)
+    }
+    
+    # Start background task
+    background_tasks.add_task(_run_comparison_background, task_id, exp_ids)
+    
+    return {
+        "task_id": task_id,
+        "status": "pending",
+        "message": "Comparison started in background",
+        "experiment_count": len(exp_ids),
+        "poll_url": f"/api/landingos/experiments/comparison/{task_id}"
+    }
 
 # ============== Terrain Data Endpoints ==============
 
