@@ -404,7 +404,7 @@ export default function LandingOSDashboard() {
         : `${API_URL}/api/landingos/simulation/${simulationId}/step`;
       
       const res = await axios.post(endpoint, null, {
-        params: { steps: 1 }  // Reduced from 5 to 1
+        params: { steps: 1 }
       });
       
       const result = comparisonEnabled ? res.data.final_result?.evo : res.data.final_result;
@@ -412,20 +412,25 @@ export default function LandingOSDashboard() {
       if (result) {
         setSimData(result);
         
-        if (result.events) {
-          setEvents(result.events.slice(0, 50));  // Limit events for rendering
+        // Sample events for visualization (display subset, full data processed server-side)
+        if (result.events && result.events.length > 0) {
+          // Random sampling for visualization - shows representative events
+          const sampleSize = Math.min(100, result.events.length);
+          const step = Math.max(1, Math.floor(result.events.length / sampleSize));
+          const sampledEvents = result.events.filter((_, i) => i % step === 0).slice(0, 100);
+          setEvents(sampledEvents);
         }
         
         if (result.ground_truth) {
-          setGroundTruth(prev => [...prev.slice(-30), result.ground_truth]);  // Reduced history
+          setGroundTruth(prev => [...prev.slice(-50), result.ground_truth]);
         }
         
         if (result.estimated) {
-          setEstimated(prev => [...prev.slice(-30), result.estimated]);
+          setEstimated(prev => [...prev.slice(-50), result.estimated]);
         }
         
         if (result.metrics) {
-          setMetricsHistory(prev => [...prev.slice(-20), {
+          setMetricsHistory(prev => [...prev.slice(-30), {
             time: result.time,
             ...result.metrics
           }]);
@@ -444,10 +449,10 @@ export default function LandingOSDashboard() {
     }
   }, [simulationId, comparisonEnabled]);
   
-  // Run/pause simulation - with throttled updates
+  // Run/pause simulation - optimized interval
   useEffect(() => {
     if (isRunning && simulationId) {
-      intervalRef.current = setInterval(stepSimulation, 300);  // Increased from 100ms to 300ms
+      intervalRef.current = setInterval(stepSimulation, 200);  // 200ms = 5 updates/sec
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
