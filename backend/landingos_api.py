@@ -475,15 +475,19 @@ async def export_simulation_events(sim_id: str, format: str = "csv"):
         raise HTTPException(status_code=404, detail="Simulation not found")
     
     sim = active_simulations[sim_id]
-    # Get last batch of events (would need to store event history for full export)
-    events = []  # In production, would store event history
+    state = sim.get_full_state()
+    events = state.get("events_history", [])
     
     if format == "csv":
         content = data_exporter.export_events_csv(events)
         media_type = "text/csv"
         filename = f"events_{sim_id}.csv"
     else:
-        content = data_exporter.export_events_json(events, {"simulation_id": sim_id})
+        content = data_exporter.export_events_json(events, {
+            "simulation_id": sim_id,
+            "total_events": state.get("events_generated", 0),
+            "duration": state.get("time", 0)
+        })
         media_type = "application/json"
         filename = f"events_{sim_id}.json"
     
