@@ -874,6 +874,133 @@ export default function LandingOSDashboard() {
             </div>
           </div>
           
+          {/* VO Comparison Panel - Show when comparison enabled */}
+          {comparisonEnabled && (
+            <div className="bento-card col-span-12">
+              <div className="bento-card-header">
+                <span className="bento-card-title">Visual Odometry Comparison: Event-Based vs Frame-Based</span>
+                <button
+                  data-testid="btn-get-comparison"
+                  onClick={fetchComparison}
+                  className="btn-secondary"
+                  disabled={!simulationId || isRunning}
+                >
+                  <GitCompare size={16} /> Get Results
+                </button>
+              </div>
+              <div className="bento-card-content">
+                {comparisonResults ? (
+                  <div className="grid grid-cols-3 gap-6">
+                    {/* EVO Results */}
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Zap size={18} className="text-blue-600" />
+                        <span className="font-semibold text-blue-900">Event-Based VO</span>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Avg Position Error</span>
+                          <span className="font-mono font-medium text-blue-600">
+                            {comparisonResults.event_based_vo?.average_position_error?.toFixed(3)}m
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Avg Attitude Error</span>
+                          <span className="font-mono font-medium">
+                            {comparisonResults.event_based_vo?.average_attitude_error?.toFixed(3)}°
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Final Error</span>
+                          <span className="font-mono font-medium">
+                            {comparisonResults.event_based_vo?.final_position_error?.toFixed(3)}m
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* FVO Results */}
+                    <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Activity size={18} className="text-orange-600" />
+                        <span className="font-semibold text-orange-900">Frame-Based VO ({comparisonResults.frame_based_vo?.frame_rate} FPS)</span>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Avg Position Error</span>
+                          <span className="font-mono font-medium text-orange-600">
+                            {comparisonResults.frame_based_vo?.average_position_error?.toFixed(3)}m
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Avg Attitude Error</span>
+                          <span className="font-mono font-medium">
+                            {comparisonResults.frame_based_vo?.average_attitude_error?.toFixed(3)}°
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Final Error</span>
+                          <span className="font-mono font-medium">
+                            {comparisonResults.frame_based_vo?.final_position_error?.toFixed(3)}m
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Comparison Summary */}
+                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <GitCompare size={18} className="text-slate-600" />
+                        <span className="font-semibold text-slate-900">Comparison</span>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Position Winner</span>
+                          <span className={`font-medium ${
+                            comparisonResults.comparison?.position_accuracy_winner === 'EVO' 
+                              ? 'text-blue-600' : 'text-orange-600'
+                          }`}>
+                            {comparisonResults.comparison?.position_accuracy_winner}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Attitude Winner</span>
+                          <span className={`font-medium ${
+                            comparisonResults.comparison?.attitude_accuracy_winner === 'EVO' 
+                              ? 'text-blue-600' : 'text-orange-600'
+                          }`}>
+                            {comparisonResults.comparison?.attitude_accuracy_winner}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">EVO Improvement</span>
+                          <span className={`font-mono font-medium ${
+                            comparisonResults.comparison?.evo_position_improvement_percent > 0 
+                              ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {comparisonResults.comparison?.evo_position_improvement_percent > 0 ? '+' : ''}
+                            {comparisonResults.comparison?.evo_position_improvement_percent}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-slate-200">
+                        <p className="text-xs text-slate-600 italic">
+                          {comparisonResults.comparison?.recommendation}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <GitCompare size={32} className="mx-auto text-slate-400 mb-2" />
+                    <p className="text-slate-600">Run a simulation and click "Get Results" to compare EVO vs Frame-Based VO.</p>
+                    <p className="text-sm text-slate-400 mt-2">Frame-Based VO simulates traditional 30 FPS camera visual odometry.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
           {/* AI Analysis Panel */}
           <div className="bento-card col-span-12">
             <div className="bento-card-header">
