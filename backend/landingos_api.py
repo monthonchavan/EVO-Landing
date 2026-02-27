@@ -612,3 +612,119 @@ async def websocket_simulation(websocket: WebSocket, sim_id: str):
     finally:
         if websocket in websocket_connections:
             websocket_connections.remove(websocket)
+
+
+# ============== VO Comparison Endpoints ==============
+
+class ComparisonConfigRequest(BaseModel):
+    frame_rate: int = Field(default=30, ge=10, le=120)
+    enable_fvo: bool = True
+
+@landingos_router.post("/simulation/{sim_id}/enable-comparison")
+async def enable_vo_comparison(sim_id: str, config: ComparisonConfigRequest = None):
+    """Enable Frame-Based VO comparison for a simulation"""
+    if sim_id not in active_simulations:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    
+    cfg = config or ComparisonConfigRequest()
+    fvo_config = FrameVOConfig(frame_rate=cfg.frame_rate)
+    fvo_instances[sim_id] = FrameBasedVO(fvo_config)
+    
+    return {
+        "simulation_id": sim_id,
+        "comparison_enabled": True,
+        "frame_rate": cfg.frame_rate
+    }
+
+@landingos_router.post("/simulation/{sim_id}/step-comparison")
+async def step_simulation_with_comparison(sim_id: str, steps: int = 1):
+    """Advance simulation with both EVO and FVO running"""
+    if sim_id not in active_simulations:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    
+    simulator = active_simulations[sim_id]
+    fvo = fvo_instances.get(sim_id)
+    
+    results = []
+    
+    for _ in range(min(steps, 50)):
+        # Run EVO step
+        evo_result = simulator.step()
+        
+        result = {
+            "evo": evo_result,
+            "fvo": None
+        }
+        
+        # Run FVO step if enabled
+        if fvo and evo_result.get("ground_truth"):
+            gt = evo_result["ground_truth"]
+            config = simulator.config
+            fvo_result = fvo.process_frame(
+                evo_result["time"],
+                gt,
+                config.descent_velocity,
+                config.vibration_amplitude
+            )
+            result["fvo"] = fvo_result
+        
+        results.append(result)
+        
+        if evo_result.get("status") == "landed":
+            break
+    
+    return {
+        "simulation_id": sim_id,
+        "steps_executed": len(results),
+        "final_result": results[-1] if results else None,
+        "comparison_enabled": sim_id in fvo_instances
+    }
+
+@landingos_router.get("/simulation/{sim_id}/comparison")
+async def get_vo_comparison(sim_id: str):
+    """Get comparison results between EVO and FVO"""
+    if sim_id not in active_simulations:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    
+    if sim_id not in fvo_instances:
+        raise HTTPException(status_code=400, detail="Comparison not enabled. Call /enable-comparison first.")
+    
+    simulator = active_simulations[sim_id]
+    fvo = fvo_instances[sim_id]
+    
+    # Get EVO data
+    evo_state = simulator.get_full_state()
+    evo_data = {
+        "metrics_history": evo_state.get("metrics_history", []),
+        "pose_history": evo_state.get("estimated_poses", [])
+    }
+    
+    # Get FVO data
+    fvo_data = fvo.get_comparison_data()
+    
+    # Compare
+    comparison = compare_vo_methods(evo_data, fvo_data)
+    
+    return {
+        "simulation_id": sim_id,
+        "comparison": comparison,
+        "evo_trajectory": evo_state.get("estimated_poses", [])[-50:],
+        "fvo_trajectory": fvo_data.get("pose_history", [])[-50:],
+        "ground_truth": evo_state.get("ground_truth_poses", [])[-50:]
+    }
+
+@landingos_router.post("/simulation/{sim_id}/reset-comparison")
+async def reset_comparison(sim_id: str):
+    """Reset FVO for a simulation"""
+    if sim_id in fvo_instances:
+        fvo_instances[sim_id].reset()
+        return {"status": "reset", "simulation_id": sim_id}
+    raise HTTPException(status_code=404, detail="Comparison not enabled for this simulation")
+
+@landingos_router.delete("/simulation/{sim_id}/disable-comparison")
+async def disable_comparison(sim_id: str):
+    """Disable FVO comparison for a simulation"""
+    if sim_id in fvo_instances:
+        del fvo_instances[sim_id]
+        return {"status": "disabled", "simulation_id": sim_id}
+    raise HTTPException(status_code=404, detail="Comparison not enabled for this simulation")
