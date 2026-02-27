@@ -12,7 +12,7 @@ from datetime import datetime
 from io import StringIO
 
 class LandingOSAPITester:
-    def __init__(self, base_url="https://moltbot-config-9p3r.preview.emergentagent.com"):
+    def __init__(self, base_url="https://links-1.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_base = f"{base_url}/api/landingos"
         self.tests_run = 0

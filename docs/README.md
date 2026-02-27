@@ -88,7 +88,7 @@ LandingOS is a comprehensive research platform for developing and testing Event-
 
 1. **Access the Dashboard**
    ```
-   Navigate to: https://your-instance.preview.emergentagent.com
+   Navigate to: https://links-1.preview.emergentagent.com
    ```
 
 2. **Create a Simulation**
@@ -151,7 +151,7 @@ Visual Odometry (VO) estimates camera motion by:
 
 ### Base URL
 ```
-https://your-instance.preview.emergentagent.com/api/landingos
+https://links-1.preview.emergentagent.com/api/landingos
 ```
 
 ### Simulation Endpoints

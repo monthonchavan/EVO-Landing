@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 
 class LandingOSAPITester:
-    def __init__(self, base_url="https://moltbot-config-9p3r.preview.emergentagent.com/api/landingos"):
+    def __init__(self, base_url="https://links-1.preview.emergentagent.com/api/landingos"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
