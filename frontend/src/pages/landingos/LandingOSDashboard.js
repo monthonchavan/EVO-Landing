@@ -323,21 +323,68 @@ export default function LandingOSDashboard() {
       setEstimated([]);
       setMetricsHistory([]);
       setAiAnalysis(null);
+      setFvoData(null);
+      setComparisonResults(null);
+      
+      // Enable comparison if toggle is on
+      if (comparisonEnabled) {
+        await axios.post(`${API_URL}/api/landingos/simulation/${res.data.id}/enable-comparison`);
+      }
     } catch (err) {
       console.error('Failed to create simulation:', err);
     }
-  }, [config]);
+  }, [config, comparisonEnabled]);
   
-  // Step simulation
+  // Toggle comparison mode
+  const toggleComparison = async () => {
+    if (!simulationId) {
+      setComparisonEnabled(!comparisonEnabled);
+      return;
+    }
+    
+    try {
+      if (!comparisonEnabled) {
+        await axios.post(`${API_URL}/api/landingos/simulation/${simulationId}/enable-comparison`);
+        setComparisonEnabled(true);
+      } else {
+        await axios.delete(`${API_URL}/api/landingos/simulation/${simulationId}/disable-comparison`);
+        setComparisonEnabled(false);
+        setFvoData(null);
+        setComparisonResults(null);
+      }
+    } catch (err) {
+      console.error('Toggle comparison error:', err);
+    }
+  };
+  
+  // Get comparison results
+  const fetchComparison = async () => {
+    if (!simulationId || !comparisonEnabled) return;
+    
+    try {
+      const res = await axios.get(`${API_URL}/api/landingos/simulation/${simulationId}/comparison`);
+      setComparisonResults(res.data.comparison);
+    } catch (err) {
+      console.error('Fetch comparison error:', err);
+    }
+  };
+  
+  // Step simulation (with optional comparison)
   const stepSimulation = useCallback(async () => {
     if (!simulationId) return;
     
     try {
-      const res = await axios.post(`${API_URL}/api/landingos/simulation/${simulationId}/step`, null, {
+      const endpoint = comparisonEnabled 
+        ? `${API_URL}/api/landingos/simulation/${simulationId}/step-comparison`
+        : `${API_URL}/api/landingos/simulation/${simulationId}/step`;
+      
+      const res = await axios.post(endpoint, null, {
         params: { steps: 5 }
       });
       
-      const result = res.data.final_result;
+      const result = comparisonEnabled ? res.data.final_result?.evo : res.data.final_result;
+      const fvoResult = comparisonEnabled ? res.data.final_result?.fvo : null;
+      
       if (result) {
         setSimData(result);
         
@@ -362,13 +409,28 @@ export default function LandingOSDashboard() {
         
         if (result.status === 'landed') {
           setIsRunning(false);
+          // Fetch final comparison
+          if (comparisonEnabled) {
+            fetchComparison();
+          }
         }
+      }
+      
+      // Store FVO data
+      if (fvoResult) {
+        setFvoData(prev => {
+          const newData = prev || { metrics: [] };
+          if (fvoResult.metrics) {
+            newData.metrics = [...(newData.metrics || []).slice(-50), fvoResult.metrics];
+          }
+          return newData;
+        });
       }
     } catch (err) {
       console.error('Simulation step error:', err);
       setIsRunning(false);
     }
-  }, [simulationId]);
+  }, [simulationId, comparisonEnabled]);
   
   // Run/pause simulation
   useEffect(() => {
