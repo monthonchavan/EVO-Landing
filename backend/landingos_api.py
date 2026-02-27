@@ -12,10 +12,14 @@ import uuid
 import asyncio
 import json
 
-from evo_engine import EVOSimulator, SimulationConfig, TerrainType
-from ai_analysis import ai_analyzer
+# Import enhanced engine with SNN support
+from evo_engine_enhanced import EVOSimulatorEnhanced as EVOSimulator, SimulationConfig, TerrainType
 from hardware_import import event_parser, data_exporter, HardwareDataset
 from frame_vo import FrameBasedVO, FrameVOConfig, compare_vo_methods
+from batch_experiments import BatchExperimentManager, ExperimentConfig, PRESET_EXPERIMENTS
+
+# Initialize batch experiment manager
+batch_manager = BatchExperimentManager()
 
 # Router for LandingOS API
 landingos_router = APIRouter(prefix="/api/landingos", tags=["LandingOS"])
