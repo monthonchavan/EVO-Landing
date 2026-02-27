@@ -43,6 +43,7 @@ class SimulationConfigRequest(BaseModel):
     vibration_frequency: float = Field(default=10.0, ge=1, le=100)
     noise_level: float = Field(default=0.1, ge=0, le=1)
     feature_density: int = Field(default=200, ge=50, le=500)
+    use_snn_processing: bool = True  # Enable SNN-based corner detection
 
 class SimulationResponse(BaseModel):
     id: str
