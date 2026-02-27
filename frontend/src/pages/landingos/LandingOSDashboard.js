@@ -289,6 +289,10 @@ export default function LandingOSDashboard() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [importedDataset, setImportedDataset] = useState(null);
+  // Comparison state
+  const [comparisonEnabled, setComparisonEnabled] = useState(false);
+  const [fvoData, setFvoData] = useState(null);
+  const [comparisonResults, setComparisonResults] = useState(null);
   const intervalRef = useRef(null);
   
   // Configuration state
