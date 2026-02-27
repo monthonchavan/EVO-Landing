@@ -58,8 +58,11 @@ class SimulationState:
     current_pose: Pose = field(default_factory=Pose)
     ground_truth_poses: List[Dict] = field(default_factory=list)
     estimated_poses: List[Dict] = field(default_factory=list)
+    events_history: List[Dict] = field(default_factory=list)  # Store all events
+    metrics_history: List[Dict] = field(default_factory=list)  # Store metrics
     events_generated: int = 0
     is_running: bool = False
+    is_landed: bool = False  # Track landed state without resetting
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 class TerrainGenerator:
