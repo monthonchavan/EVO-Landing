@@ -211,31 +211,6 @@ class LightweightEventCamera:
         
         self.last_frame = current_frame.copy()
         return events[:self.max_events]
-                "y": int(y * 4),
-                "timestamp": timestamp + random.uniform(0, 50),
-                "polarity": 1
-            })
-        
-        for i, (y, x) in enumerate(neg_coords[:max_per_polarity]):
-            events.append({
-                "x": int(x * 4),
-                "y": int(y * 4),
-                "timestamp": timestamp + random.uniform(0, 50),
-                "polarity": -1
-            })
-        
-        # Add minimal noise
-        num_noise = min(10, int(len(events) * self.noise_level))
-        for _ in range(num_noise):
-            events.append({
-                "x": random.randint(0, self.width - 1),
-                "y": random.randint(0, self.height - 1),
-                "timestamp": timestamp + random.uniform(0, 100),
-                "polarity": random.choice([-1, 1])
-            })
-        
-        self.last_frame = downsampled.copy()
-        return events[:self.max_events]
 
 
 class SimplifiedSNNProcessor:
