@@ -14,31 +14,12 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 // Terrain mesh component for 3D view
 function TerrainMesh({ terrainType }) {
-  const meshRef = useRef();
-  
-  const geometry = React.useMemo(() => {
-    const geo = new THREE.PlaneGeometry(200, 200, 64, 64);
-    const positions = geo.attributes.position.array;
-    
-    // Add terrain height variation
-    for (let i = 0; i < positions.length; i += 3) {
-      const x = positions[i];
-      const y = positions[i + 1];
-      const noise = Math.sin(x * 0.05) * Math.cos(y * 0.05) * 5 +
-                   Math.sin(x * 0.1) * Math.cos(y * 0.08) * 3;
-      positions[i + 2] = noise;
-    }
-    
-    geo.computeVertexNormals();
-    return geo;
-  }, []);
-  
   const color = terrainType === 'mars' ? '#8B4513' : '#4A4A4A';
   
   return (
-    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, -50, 0]}>
-      <primitive object={geometry} />
-      <meshStandardMaterial color={color} roughness={0.9} flatShading />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -50, 0]}>
+      <planeGeometry args={[200, 200, 32, 32]} />
+      <meshStandardMaterial color={color} roughness={0.9} wireframe={false} />
     </mesh>
   );
 }
