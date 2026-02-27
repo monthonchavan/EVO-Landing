@@ -1,12 +1,15 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
-// Simple Grid Floor
-function GridFloor() {
+// Simple Ground Plane
+function GroundPlane() {
   return (
-    <gridHelper args={[2000, 100, '#1a1a2e', '#2a2a4e']} rotation={[0, 0, 0]} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1, 0]} receiveShadow>
+      <planeGeometry args={[2000, 2000]} />
+      <meshStandardMaterial color="#1a1a2e" />
+    </mesh>
   );
 }
 
@@ -194,6 +197,16 @@ function Stars() {
   );
 }
 
+// Loading fallback
+function LoadingFallback() {
+  return (
+    <mesh position={[0, 0, 0]}>
+      <boxGeometry args={[50, 50, 50]} />
+      <meshStandardMaterial color="#666" />
+    </mesh>
+  );
+}
+
 // Main 3D Scene component
 export default function Scene3D({ 
   terrainData, 
@@ -204,36 +217,43 @@ export default function Scene3D({
   followCamera = false 
 }) {
   return (
-    <Canvas shadows camera={{ position: [0, 600, 800], fov: 60 }}>
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[200, 500, 300]} intensity={1} castShadow />
-      <pointLight position={[-200, 300, -200]} intensity={0.3} />
-      
-      <color attach="background" args={['#0a0a1a']} />
-      <fog attach="fog" args={['#0a0a1a', 500, 2000]} />
-      
-      <Stars />
-      <GridFloor />
-      
-      {terrainData && (
-        <>
-          <TerrainMesh heightmapData={terrainData.heightmap} />
-          <FeatureMarkers features={terrainData.features} />
-        </>
-      )}
-      
-      <TrajectoryPath poses={groundTruthTrajectory} color="#00FF00" />
-      <TrajectoryPath poses={estimatedTrajectory} color="#FF6600" />
-      
-      <Lander pose={currentPose} />
-      
-      <CameraController pose={currentPose} followMode={followCamera} />
-      <OrbitControls 
-        enableDamping 
-        dampingFactor={0.05}
-        maxDistance={2000}
-        minDistance={50}
-      />
+    <Canvas 
+      shadows 
+      camera={{ position: [0, 600, 800], fov: 60 }}
+      onCreated={({ gl }) => {
+        gl.setClearColor('#0a0a1a');
+      }}
+    >
+      <Suspense fallback={<LoadingFallback />}>
+        <ambientLight intensity={0.4} />
+        <directionalLight position={[200, 500, 300]} intensity={1} castShadow />
+        <pointLight position={[-200, 300, -200]} intensity={0.3} />
+        
+        <fog attach="fog" args={['#0a0a1a', 500, 2000]} />
+        
+        <Stars />
+        <GroundPlane />
+        
+        {terrainData && (
+          <>
+            <TerrainMesh heightmapData={terrainData.heightmap} />
+            <FeatureMarkers features={terrainData.features} />
+          </>
+        )}
+        
+        <TrajectoryPath poses={groundTruthTrajectory} color="#00FF00" />
+        <TrajectoryPath poses={estimatedTrajectory} color="#FF6600" />
+        
+        <Lander pose={currentPose} />
+        
+        <CameraController pose={currentPose} followMode={followCamera} />
+        <OrbitControls 
+          enableDamping 
+          dampingFactor={0.05}
+          maxDistance={2000}
+          minDistance={50}
+        />
+      </Suspense>
     </Canvas>
   );
 }
