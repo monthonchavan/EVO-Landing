@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Play, Pause, RotateCcw, Settings, Cpu, Activity, Gauge, 
   Mountain, Zap, Brain, AlertTriangle, CheckCircle,
-  BarChart3, Clock, Layers, Box
+  BarChart3, Clock, Layers, Box, Upload, Download, FileText, X
 } from 'lucide-react';
 import { LineChart, Line as RechartsLine, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import axios from 'axios';
