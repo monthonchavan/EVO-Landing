@@ -357,7 +357,56 @@ export default function BatchExperimentsPanel() {
     setExperiments(prev => [...prev, newExp]);
   };
   
-  // Run single experiment
+  // Poll task status
+  const pollTaskStatus = useCallback(async (taskId, experimentIds) => {
+    try {
+      const response = await axios.get(`${API_URL}/api/landingos/experiments/task/${taskId}`);
+      const taskData = response.data;
+      
+      if (taskData.status === 'completed') {
+        // Fetch results
+        const resultsRes = await axios.get(`${API_URL}/api/landingos/experiments/task/${taskId}/results`);
+        const results = resultsRes.data.results || [];
+        
+        // Update experiments with results
+        setExperiments(prev => prev.map(e => {
+          if (experimentIds.includes(e.id)) {
+            const result = results.find(r => r.name === e.name) || results[0];
+            if (result) {
+              return {
+                ...e,
+                status: 'completed',
+                final_position_error: result.final_position_error,
+                final_attitude_error: result.final_attitude_error,
+                average_drift_rate: result.average_drift_rate,
+                duration: result.duration,
+                server_id: result.id
+              };
+            }
+          }
+          return e;
+        }));
+        
+        setIsRunning(false);
+        return true; // Completed
+      } else if (taskData.status === 'failed') {
+        // Mark experiments as failed
+        setExperiments(prev => prev.map(e => 
+          experimentIds.includes(e.id) ? { ...e, status: 'error' } : e
+        ));
+        setIsRunning(false);
+        return true; // Done (with error)
+      }
+      
+      // Still running or pending
+      return false;
+    } catch (err) {
+      console.error('Poll error:', err);
+      return false;
+    }
+  }, []);
+  
+  // Run single experiment with async polling
   const handleRunExperiment = async (experiment) => {
     setIsRunning(true);
     
@@ -367,39 +416,34 @@ export default function BatchExperimentsPanel() {
     ));
     
     try {
-      const response = await axios.post(`${API_URL}/api/landingos/experiments/run`, {
-        experiments: [{
-          name: experiment.name,
-          terrain_type: experiment.config.terrain_type,
-          initial_altitude: experiment.config.altitude || 1000,
-          descent_velocity: experiment.config.velocity || 50,
-          vibration_amplitude: experiment.config.vibration,
-          noise_level: experiment.config.noise,
-          use_snn_processing: experiment.config.use_snn
-        }]
-      });
+      const response = await axios.post(`${API_URL}/api/landingos/experiments/run`, [{
+        name: experiment.name,
+        terrain_type: experiment.config.terrain_type,
+        initial_altitude: experiment.config.altitude || 1000,
+        descent_velocity: experiment.config.velocity || 50,
+        vibration_amplitude: experiment.config.vibration,
+        noise_level: experiment.config.noise,
+        use_snn_processing: experiment.config.use_snn
+      }]);
       
-      const result = response.data.results[0];
+      const taskId = response.data.task_id;
+      const experimentIds = [experiment.id];
       
-      setExperiments(prev => prev.map(e => 
-        e.id === experiment.id ? {
-          ...e,
-          status: 'completed',
-          final_position_error: result.final_position_error,
-          final_attitude_error: result.final_attitude_error,
-          average_drift_rate: result.average_position_error / result.duration,
-          duration: result.duration,
-          server_id: result.id
-        } : e
-      ));
+      // Poll for completion
+      const pollInterval = setInterval(async () => {
+        const isDone = await pollTaskStatus(taskId, experimentIds);
+        if (isDone) {
+          clearInterval(pollInterval);
+        }
+      }, 2000); // Poll every 2 seconds
+      
     } catch (err) {
       console.error('Run experiment error:', err);
       setExperiments(prev => prev.map(e => 
         e.id === experiment.id ? { ...e, status: 'error' } : e
       ));
+      setIsRunning(false);
     }
-    
-    setIsRunning(false);
   };
   
   // Run all pending experiments
@@ -415,7 +459,7 @@ export default function BatchExperimentsPanel() {
     setExperiments(prev => prev.filter(e => e.id !== id));
   };
   
-  // Compare completed experiments
+  // Compare completed experiments with async polling
   const handleCompare = async () => {
     const completed = experiments.filter(e => e.status === 'completed' && e.server_id);
     
@@ -428,7 +472,33 @@ export default function BatchExperimentsPanel() {
       const response = await axios.post(`${API_URL}/api/landingos/experiments/compare`, 
         completed.map(e => e.server_id)
       );
-      setComparison(response.data);
+      
+      const taskId = response.data.task_id;
+      
+      // Poll for comparison results
+      const pollComparison = async () => {
+        try {
+          const statusRes = await axios.get(`${API_URL}/api/landingos/experiments/comparison/${taskId}`);
+          if (statusRes.data.status === 'completed') {
+            const resultsRes = await axios.get(`${API_URL}/api/landingos/experiments/comparison/${taskId}/results`);
+            setComparison(resultsRes.data);
+            return true;
+          }
+          return false;
+        } catch (err) {
+          console.error('Poll comparison error:', err);
+          return false;
+        }
+      };
+      
+      // Poll every 2 seconds
+      const pollInterval = setInterval(async () => {
+        const isDone = await pollComparison();
+        if (isDone) {
+          clearInterval(pollInterval);
+        }
+      }, 2000);
+      
     } catch (err) {
       console.error('Compare error:', err);
     }
