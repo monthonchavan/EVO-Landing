@@ -355,3 +355,253 @@ async def get_terrain_features(terrain_type: str, count: int = 100):
         "terrain_type": terrain_type,
         "features": generator.features
     }
+
+
+# ============== Hardware Data Import Endpoints ==============
+
+@landingos_router.get("/import/formats")
+async def get_supported_formats():
+    """Get list of supported file formats for import"""
+    return {
+        "formats": [
+            {"id": "csv", "name": "CSV", "description": "Comma-separated values (x, y, timestamp, polarity)", "extensions": [".csv"]},
+            {"id": "json", "name": "JSON", "description": "JSON event array", "extensions": [".json"]},
+            {"id": "txt", "name": "Text", "description": "Space/tab separated values", "extensions": [".txt"]},
+            {"id": "npy", "name": "NumPy", "description": "NumPy array file", "extensions": [".npy"]},
+            {"id": "aedat4", "name": "AEDAT 4.0", "description": "Prophesee/iniVation format", "extensions": [".aedat4", ".aedat"]},
+            {"id": "raw", "name": "RAW", "description": "Prophesee EVK raw format", "extensions": [".raw"]}
+        ],
+        "max_file_size_mb": 100,
+        "example_csv": "x,y,timestamp,polarity\n320,240,1000,1\n321,241,1001,-1"
+    }
+
+@landingos_router.post("/import/upload")
+async def upload_hardware_data(
+    file: UploadFile = File(...),
+    format_hint: Optional[str] = None
+):
+    """Upload and import event camera data from hardware"""
+    try:
+        # Read file content
+        content = await file.read()
+        
+        # Check file size (100MB limit)
+        if len(content) > 100 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File too large. Maximum 100MB allowed.")
+        
+        # Parse the file
+        dataset = event_parser.parse_file(content, file.filename, format_hint)
+        
+        # Store in memory
+        dataset_dict = {
+            "id": dataset.id,
+            "name": dataset.name,
+            "format": dataset.format,
+            "resolution": dataset.resolution,
+            "events": dataset.events[:10000],  # Limit stored events
+            "total_events": dataset.total_events,
+            "duration_us": dataset.duration_us,
+            "metadata": dataset.metadata,
+            "imported_at": dataset.imported_at.isoformat()
+        }
+        imported_datasets[dataset.id] = dataset_dict
+        
+        return {
+            "success": True,
+            "dataset_id": dataset.id,
+            "name": dataset.name,
+            "format": dataset.format,
+            "resolution": dataset.resolution,
+            "total_events": dataset.total_events,
+            "duration_ms": dataset.duration_us / 1000,
+            "sample_events": dataset.events[:10]
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+
+@landingos_router.get("/import/datasets")
+async def list_imported_datasets():
+    """List all imported hardware datasets"""
+    return {
+        "datasets": [
+            {
+                "id": d["id"],
+                "name": d["name"],
+                "format": d["format"],
+                "total_events": d["total_events"],
+                "duration_ms": d["duration_us"] / 1000,
+                "imported_at": d["imported_at"]
+            }
+            for d in imported_datasets.values()
+        ]
+    }
+
+@landingos_router.get("/import/dataset/{dataset_id}")
+async def get_imported_dataset(dataset_id: str, offset: int = 0, limit: int = 1000):
+    """Get events from an imported dataset"""
+    if dataset_id not in imported_datasets:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    dataset = imported_datasets[dataset_id]
+    events = dataset["events"][offset:offset + limit]
+    
+    return {
+        "id": dataset["id"],
+        "name": dataset["name"],
+        "total_events": dataset["total_events"],
+        "offset": offset,
+        "limit": limit,
+        "events": events
+    }
+
+@landingos_router.delete("/import/dataset/{dataset_id}")
+async def delete_imported_dataset(dataset_id: str):
+    """Delete an imported dataset"""
+    if dataset_id not in imported_datasets:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    del imported_datasets[dataset_id]
+    return {"success": True, "deleted": dataset_id}
+
+# ============== Data Export Endpoints ==============
+
+@landingos_router.get("/export/simulation/{sim_id}/events")
+async def export_simulation_events(sim_id: str, format: str = "csv"):
+    """Export events from a simulation"""
+    if sim_id not in active_simulations:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    
+    sim = active_simulations[sim_id]
+    # Get last batch of events (would need to store event history for full export)
+    events = []  # In production, would store event history
+    
+    if format == "csv":
+        content = data_exporter.export_events_csv(events)
+        media_type = "text/csv"
+        filename = f"events_{sim_id}.csv"
+    else:
+        content = data_exporter.export_events_json(events, {"simulation_id": sim_id})
+        media_type = "application/json"
+        filename = f"events_{sim_id}.json"
+    
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@landingos_router.get("/export/simulation/{sim_id}/trajectory")
+async def export_simulation_trajectory(sim_id: str, format: str = "csv"):
+    """Export trajectory from a simulation"""
+    if sim_id not in active_simulations:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    
+    sim = active_simulations[sim_id]
+    state = sim.get_full_state()
+    
+    if format == "csv":
+        content = data_exporter.export_trajectory_csv(state.get("ground_truth_poses", []))
+        media_type = "text/csv"
+        filename = f"trajectory_{sim_id}.csv"
+    else:
+        content = json.dumps({
+            "simulation_id": sim_id,
+            "ground_truth": state.get("ground_truth_poses", []),
+            "estimated": state.get("estimated_poses", [])
+        }, indent=2)
+        media_type = "application/json"
+        filename = f"trajectory_{sim_id}.json"
+    
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@landingos_router.get("/export/experiment/{exp_id}")
+async def export_experiment(exp_id: str):
+    """Export complete experiment data"""
+    if exp_id not in experiments_db:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    
+    exp = experiments_db[exp_id]
+    content = data_exporter.export_full_experiment(exp)
+    
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=experiment_{exp_id}.json"}
+    )
+
+# ============== WebSocket for Real-time Updates ==============
+
+@landingos_router.websocket("/ws/simulation/{sim_id}")
+async def websocket_simulation(websocket: WebSocket, sim_id: str):
+    """WebSocket endpoint for real-time simulation updates"""
+    await websocket.accept()
+    websocket_connections.append(websocket)
+    
+    try:
+        if sim_id not in active_simulations:
+            await websocket.send_json({"error": "Simulation not found"})
+            await websocket.close()
+            return
+        
+        sim = active_simulations[sim_id]
+        
+        while True:
+            # Wait for command from client
+            data = await websocket.receive_json()
+            command = data.get("command")
+            
+            if command == "step":
+                steps = data.get("steps", 1)
+                results = []
+                for _ in range(min(steps, 10)):
+                    result = sim.step()
+                    results.append(result)
+                    
+                    # Send each step result immediately
+                    await websocket.send_json({
+                        "type": "step",
+                        "data": result
+                    })
+                    
+                    if result["status"] == "landed":
+                        await websocket.send_json({
+                            "type": "landed",
+                            "data": sim.get_full_state()
+                        })
+                        break
+                    
+                    await asyncio.sleep(0.05)  # Small delay between steps
+            
+            elif command == "state":
+                await websocket.send_json({
+                    "type": "state",
+                    "data": sim.get_full_state()
+                })
+            
+            elif command == "reset":
+                sim.reset()
+                await websocket.send_json({
+                    "type": "reset",
+                    "data": {"status": "reset"}
+                })
+            
+            elif command == "stop":
+                break
+                
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        try:
+            await websocket.send_json({"error": str(e)})
+        except:
+            pass
+    finally:
+        if websocket in websocket_connections:
+            websocket_connections.remove(websocket)
