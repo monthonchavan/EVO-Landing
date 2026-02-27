@@ -12,6 +12,7 @@ import BatchExperimentsPanel from '../../components/BatchExperiments';
 const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 // 2D Event visualization canvas
+// Note: Displays sampled events for performance. Full event data is processed server-side.
 function EventCanvas({ events, corners }) {
   const canvasRef = useRef(null);
   
@@ -46,21 +47,21 @@ function EventCanvas({ events, corners }) {
       ctx.stroke();
     }
     
-    // Draw events - simplified for performance (no glow effect)
+    // Draw events (sampled for visualization)
     if (events && events.length > 0) {
-      // Limit to 50 events max for smooth rendering
-      const limitedEvents = events.slice(0, 50);
-      
-      limitedEvents.forEach(event => {
+      events.forEach(event => {
         const x = (event.x / 640) * width;
         const y = (event.y / 480) * height;
         
-        // Simple circles without glow for performance
+        // Draw with slight glow for visibility
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = event.polarity > 0 ? '#0088FF' : '#FF6600';
         ctx.fillStyle = event.polarity > 0 ? '#0055FF' : '#FF5F00';
         ctx.beginPath();
         ctx.arc(x, y, 4, 0, Math.PI * 2);
         ctx.fill();
       });
+      ctx.shadowBlur = 0;
     }
     
     // Draw detected corners (SNN)
