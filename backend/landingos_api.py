@@ -15,12 +15,15 @@ import json
 from evo_engine import EVOSimulator, SimulationConfig, TerrainType
 from ai_analysis import ai_analyzer
 from hardware_import import event_parser, data_exporter, HardwareDataset
+from frame_vo import FrameBasedVO, FrameVOConfig, compare_vo_methods
 
 # Router for LandingOS API
 landingos_router = APIRouter(prefix="/api/landingos", tags=["LandingOS"])
 
 # In-memory storage for active simulations
 active_simulations: Dict[str, EVOSimulator] = {}
+# Storage for Frame-Based VO instances (for comparison)
+fvo_instances: Dict[str, FrameBasedVO] = {}
 # Storage for imported hardware datasets
 imported_datasets: Dict[str, Dict] = {}
 # WebSocket connections for real-time updates
