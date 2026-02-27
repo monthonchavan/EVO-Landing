@@ -81,7 +81,7 @@ def create_styles():
     
     # Code style
     styles.add(ParagraphStyle(
-        name='Code',
+        name='CustomCode',
         parent=styles['Normal'],
         fontName='Courier',
         fontSize=8,
@@ -491,7 +491,7 @@ def generate_report():
     pos_mask = delta > self.threshold_pos  # ON events
     neg_mask = delta < -self.threshold_neg  # OFF events
     """
-    story.append(Paragraph(code_text, styles['Code']))
+    story.append(Paragraph(code_text, styles['CustomCode']))
     
     story.append(Paragraph("4.2 Noise Modeling", styles['SubsectionHeading']))
     story.append(Paragraph("""
